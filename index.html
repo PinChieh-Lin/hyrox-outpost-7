@@ -29,6 +29,7 @@
     --far: #f3c3a4; --mid: #eba483; --near: #6b5560; --road: #5a4a55;
     --ink: #3b2a2a; --card: #fff8f0; --accent: #e8774f;
     --night: 0; --p: 0;
+    --mobile-bottom-overlay: 0px;
     /* HYROX 分頁 */
     --hy-bg: #0c0c0d; --hy-road: #d9b23f; --hy-edge: #8a6f1f; --hy-done: #8fc7c0; --hy-text: #f2ede2; --hy-muted: #9b968c;
     --skin: #c98a6b;
@@ -488,19 +489,21 @@
 
   /* ===== 手機版（主要操作介面） ===== */
   .tab-ico { margin-right: 4px; }
+  body.has-bottom-overlay { --mobile-bottom-overlay: 56px; }
   @media (max-width: 720px) {
     input, select, textarea { font-size: 16px; }
     .tabs { top: auto; bottom: 0; left: 0; right: 0; translate: none; max-width: none; width: 100%; justify-content: space-around; gap: 0;
+      bottom: var(--mobile-bottom-overlay);
       border-radius: 20px 20px 0 0; border-bottom: 0; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
     .tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 0.7rem; border-radius: 14px; }
     .tab-ico { margin: 0; font-size: 1.25rem; line-height: 1; }
-    main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+    main { padding-bottom: calc(76px + env(safe-area-inset-bottom) + var(--mobile-bottom-overlay)); }
     /* 跑者原本在畫面最底下，會被底部導覽列蓋住；往上移到道路遠一點的地方 */
     .runners { bottom: calc(70px + env(safe-area-inset-bottom)); gap: 10px; }
     .runner { width: 26px; }
-    footer { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
-    .live-banner { bottom: calc(84px + env(safe-area-inset-bottom)); }
-    .hud { bottom: calc(80px + env(safe-area-inset-bottom)); }
+    footer { padding-bottom: calc(90px + env(safe-area-inset-bottom) + var(--mobile-bottom-overlay)); }
+    .live-banner { bottom: calc(84px + env(safe-area-inset-bottom) + var(--mobile-bottom-overlay)); }
+    .hud { bottom: calc(80px + env(safe-area-inset-bottom) + var(--mobile-bottom-overlay)); }
 
     .wrap { width: calc(100% - 24px); }
     section { padding-top: 12vh; }
@@ -552,7 +555,7 @@
     .me-task b { font-size: 0.95rem; }
     .me-task-no { font-size: 1.15rem; }
     .me-check { right: 10px; width: 20px; height: 20px; }
-    .me-foot { position: sticky; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 5; margin-top: 14px; padding: 10px 12px;
+    .me-foot { position: sticky; bottom: calc(76px + env(safe-area-inset-bottom) + var(--mobile-bottom-overlay)); z-index: 5; margin-top: 14px; padding: 10px 12px;
       background: color-mix(in srgb, var(--card) 92%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
       border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); }
     .me-save { padding: 12px 18px; }
@@ -1098,9 +1101,42 @@
       document.querySelector(`.tabs [data-tab="${next}"]`).focus();
     });
 
+    // ===== 手機版底部外部浮標（例如 Netlify）避讓 =====
+    let overlayGuardTimer = null;
+    function shouldAvoidBottomOverlay(el) {
+      const cs = getComputedStyle(el);
+      if (cs.position !== "fixed" || cs.display === "none" || cs.visibility === "hidden") return false;
+      const rect = el.getBoundingClientRect();
+      if (!rect.width || !rect.height) return false;
+      const nearBottom = window.innerHeight - rect.bottom <= 24 && rect.top >= window.innerHeight * 0.6;
+      if (!nearBottom) return false;
+      const source = [el.id, el.className, el.getAttribute("aria-label"), el.title, el.src, el.href, el.textContent]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return source.includes("netlify") || source.includes("powered by");
+    }
+    function updateBottomOverlayGuard() {
+      if (!window.matchMedia("(max-width: 720px)").matches) {
+        document.body.classList.remove("has-bottom-overlay");
+        return;
+      }
+      const nodes = document.querySelectorAll("iframe, div, a");
+      const blocked = Array.from(nodes).some(shouldAvoidBottomOverlay);
+      document.body.classList.toggle("has-bottom-overlay", blocked);
+    }
+    function queueBottomOverlayGuard() {
+      clearTimeout(overlayGuardTimer);
+      overlayGuardTimer = setTimeout(updateBottomOverlayGuard, 80);
+    }
+    const overlayObserver = new MutationObserver(queueBottomOverlayGuard);
+    overlayObserver.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+    window.addEventListener("resize", queueBottomOverlayGuard);
+
     window.addEventListener("DOMContentLoaded", () => {
       const initial = location.hash.slice(1);
       if (TABS.includes(initial) && initial !== "home") setTab(initial);
+      updateBottomOverlayGuard();
     });
 
     // ===== 交棒載入動畫：只在切換到 HYROX 賽制時播放，點一下可跳過 =====
