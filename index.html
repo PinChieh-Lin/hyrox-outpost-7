@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#f6b98a" />
 <title>第七屆 HYROX 前哨打卡站</title>
-<!-- 版本：20261122c。更新 JS/CSS 後，把下面三個 ?v= 的數字一起改掉，大家的手機就會抓新檔 -->
-<meta name="hyrox-build" content="20261122c" />
+<!-- 版本：20261122e。更新 JS/CSS 後，把下面三個 ?v= 的數字一起改掉，大家的手機就會抓新檔 -->
+<meta name="hyrox-build" content="20261122e" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Oswald:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="./shared.css?v=20261122c" />
+<link rel="stylesheet" href="./shared.css?v=20261122e" />
 <style>
   /* ===== 小人骨架用的動畫變數 ===== */
   @property --y { syntax: "<length>"; inherits: true; initial-value: 0px; }
@@ -851,13 +851,16 @@
       updateSunText();
     };
 
-    // 太陽裡的倒數：一開始被標題擋住所以先隱藏，標題捲走一半後才浮現
+    // 太陽裡的倒數：標題、說明、選手名單還疊在太陽上時先隱藏，
+    // 等最下面的名單完全捲過太陽裡的倒數文字後才浮現（依實際位置判斷，手機、桌機、分頁在上或在下都適用）
     function updateSunText() {
       const hero = document.querySelector('[data-view="home"] .hero');
+      const count = document.getElementById("sun-count");
       let t = 0;
-      if (document.body.dataset.tab === "home" && hero) {
-        const h = hero.offsetHeight || window.innerHeight;
-        t = Math.min(1, Math.max(0, (window.scrollY - h * 0.3) / (h * 0.3)));
+      if (document.body.dataset.tab === "home" && hero && count) {
+        const last = hero.lastElementChild || hero;
+        const gap = count.getBoundingClientRect().top - last.getBoundingClientRect().bottom;
+        t = Math.min(1, Math.max(0, (gap - 8) / 60));
       }
       document.documentElement.style.setProperty("--sun-text", t.toFixed(3));
     }
@@ -1119,20 +1122,20 @@
 
     // ===== 分頁 =====
     const TABS = ["home", "me", "board", "hyrox"];
-    const parseHashTab = () => {
-      const raw = (location.hash || "").replace(/^#/, "").trim().toLowerCase();
-      return TABS.includes(raw) ? raw : "home";
+    let pendingScrollTarget = null;
+    const tabOfHash = () => {
+      const raw = (location.hash || "").replace(/^#/, "").trim();
+      const lower = raw.toLowerCase();
+      const tab = TABS.includes(lower) ? lower : "home";
+      return { raw, tab, canonicalHash: `#${tab}` };
     };
-    function setTab(name, scrollTarget, { fromHash = false } = {}) {
+    function renderTab(name, scrollTarget) {
       if (!TABS.includes(name)) name = "home";
       const prevTab = document.body.dataset.tab;
       if (name === "hyrox" && prevTab !== "hyrox") showRelayLoader();
       document.body.dataset.tab = name;
       document.querySelectorAll(".tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
       document.querySelectorAll(".view").forEach((v) => (v.hidden = v.dataset.view !== name));
-      if (!fromHash) {
-        history.replaceState(null, "", name === "home" ? location.pathname + location.search : `#${name}`);
-      }
       document.documentElement.style.scrollBehavior = "auto";
       const target = scrollTarget && document.getElementById(scrollTarget);
       document.documentElement.scrollTop = target ? target.getBoundingClientRect().top + window.scrollY - 70 : 0;
@@ -1142,27 +1145,50 @@
       queueRunnerDepth();
       if (window.HY && typeof window.HY.applyScroll === "function") window.HY.applyScroll();
     }
-    window.setTab = setTab;
+    function route() {
+      const { raw, tab, canonicalHash } = tabOfHash();
+      if (!raw) {
+        history.replaceState(null, "", `${location.pathname}${location.search}#home`);
+      } else if (location.hash !== canonicalHash) {
+        history.replaceState(null, "", `${location.pathname}${location.search}${canonicalHash}`);
+      }
+      const target = pendingScrollTarget;
+      pendingScrollTarget = null;
+      renderTab(tab, target);
+    }
+    function navigate(name, scrollTarget) {
+      const tab = TABS.includes(name) ? name : "home";
+      const hash = `#${tab}`;
+      pendingScrollTarget = scrollTarget || null;
+      if (location.hash === hash) {
+        const target = pendingScrollTarget;
+        pendingScrollTarget = null;
+        renderTab(tab, target);
+        return;
+      }
+      location.hash = hash;
+    }
+    window.setTab = navigate;
     document.addEventListener("click", (e) => {
       const tab = e.target.closest(".tabs [data-tab]");
-      if (tab) return setTab(tab.dataset.tab);
+      if (tab) return navigate(tab.dataset.tab);
       const go = e.target.closest("[data-goto]");
-      if (go) setTab(go.dataset.goto, go.dataset.scroll);
+      if (go) navigate(go.dataset.goto, go.dataset.scroll);
     });
     document.querySelector(".tabs").addEventListener("keydown", (e) => {
       if (!["ArrowLeft", "ArrowRight"].includes(e.key)) return;
       const i = TABS.indexOf(document.body.dataset.tab);
       const next = TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length];
-      setTab(next);
+      navigate(next);
       document.querySelector(`.tabs [data-tab="${next}"]`).focus();
     });
 
     window.addEventListener("hashchange", () => {
-      setTab(parseHashTab(), null, { fromHash: true });
+      route();
     });
 
     window.addEventListener("DOMContentLoaded", () => {
-      setTab(parseHashTab(), null, { fromHash: true });
+      route();
       queueRunnerDepth();
     });
 
@@ -1191,7 +1217,7 @@
     if (document.fonts) document.fonts.ready.then(buildRoad);
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="./races.js?v=20261122c"></script>
-  <script src="./live.js?v=20261122c"></script>
+  <script src="./races.js?v=20261122e"></script>
+  <script src="./live.js?v=20261122e"></script>
 </body>
 </html>

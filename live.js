@@ -627,17 +627,7 @@
   }
 
   function gotoTodayDraw() {
-    if (typeof window.setTab === "function") {
-      window.setTab("home", "draw");
-      return;
-    }
-    const homeTab = document.querySelector('.tabs [data-tab="home"]');
-    if (homeTab) homeTab.click();
-    requestAnimationFrame(() => {
-      const draw = document.getElementById("draw");
-      if (!draw) return;
-      document.documentElement.scrollTop = draw.getBoundingClientRect().top + window.scrollY - 70;
-    });
+    if (typeof window.setTab === "function") window.setTab("home", "draw");
   }
 
   function personalEvents() {
