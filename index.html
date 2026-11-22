@@ -72,9 +72,23 @@
   .skyline .win { fill: #ffd98a; opacity: var(--night); }
   .skyline .lampglow { fill: #ffd98a; opacity: var(--night); }
   .skyline .dash { fill: #f6e7d2; opacity: 0.8; }
-  .runners { position: absolute; left: 50%; bottom: 3vh; translate: -50% 0; display: flex; gap: clamp(8px, 2vw, 26px); align-items: flex-end; }
+  .runners {
+    position: absolute; left: 50%; bottom: 3vh; translate: -50% 0;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 0;
+    --run-p: 0;
+    --run-w-near: clamp(180px, 58vw, 320px);
+    --run-w-far: clamp(108px, 32vw, 178px);
+    width: calc(var(--run-w-near) - (var(--run-w-near) - var(--run-w-far)) * var(--run-p));
+  }
   .runner { width: clamp(22px, 2.6vw, 34px); animation: bob 0.5s ease-in-out infinite alternate; animation-delay: calc(var(--d) * -0.13s); }
-  .runner svg { width: 100%; height: auto; display: block; }
+  .runner svg {
+    width: 100%; height: auto; display: block;
+    transform-origin: 50% 100%;
+    transform: translate(
+      calc(var(--lane, 0) * var(--run-p) * -2px),
+      calc(var(--run-p) * -78px)
+    ) scale(calc(1 - var(--run-p) * 0.44));
+  }
   @keyframes bob { to { transform: translateY(-4px); } }
   .hy-scene { position: fixed; inset: 0; z-index: 0; display: none; background: radial-gradient(ellipse at 50% 0%, #17171a, var(--hy-bg) 70%); }
   body[data-tab="hyrox"] { background: var(--hy-bg); color: var(--hy-text); }
@@ -501,6 +515,8 @@
     footer { padding-bottom: 40px; }
     .live-banner { bottom: calc(20px + env(safe-area-inset-bottom)); }
     .hud { bottom: 14px; }
+    body[data-tab="hyrox"] .hud { bottom: calc(74px + env(safe-area-inset-bottom)); }
+    .view-hyrox { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
 
     .wrap { width: calc(100% - 24px); }
     section { padding-top: 12vh; }
@@ -905,10 +921,37 @@
         const div = document.createElement("div");
         div.className = "runner";
         div.style.setProperty("--d", i);
+        div.style.setProperty("--lane", (i - (shirts.length - 1) / 2).toFixed(2));
         div.innerHTML = `<svg viewBox="0 0 30 60"><circle cx="15" cy="7" r="6" fill="#2a1d1d"/><rect x="7" y="14" width="16" height="20" rx="5" fill="${c}"/><rect x="4" y="16" width="4" height="14" rx="2" fill="#c98a6b" transform="rotate(${i % 2 ? 14 : -14} 6 16)"/><rect x="22" y="16" width="4" height="14" rx="2" fill="#c98a6b" transform="rotate(${i % 2 ? -14 : 14} 24 16)"/><rect x="8" y="32" width="14" height="8" rx="3" fill="#2a2a33"/><rect x="9" y="38" width="5" height="18" rx="2.5" fill="#c98a6b"/><rect x="16" y="38" width="5" height="${i % 2 ? 14 : 18}" rx="2.5" fill="#c98a6b"/></svg>`;
         runners.appendChild(div);
       });
     })();
+
+    // ===== 首頁跑者：隨滾動往道路遠方前進 =====
+    let runnerTick = null;
+    function updateRunnerDepth() {
+      const runnerGroup = document.getElementById("runners");
+      const hero = document.querySelector('[data-view="home"] .hero');
+      const firstPanel = document.getElementById("races");
+      if (!runnerGroup || !hero || !firstPanel || document.body.dataset.tab !== "home") {
+        if (runnerGroup) runnerGroup.style.setProperty("--run-p", "0");
+        return;
+      }
+      const start = hero.offsetHeight * 0.16;
+      const panelTop = firstPanel.getBoundingClientRect().top + window.scrollY;
+      const end = Math.max(start + 140, panelTop - window.innerHeight * 0.62);
+      const p = Math.min(0.62, Math.max(0, (window.scrollY - start) / (end - start)));
+      runnerGroup.style.setProperty("--run-p", p.toFixed(3));
+    }
+    function queueRunnerDepth() {
+      if (runnerTick) return;
+      runnerTick = requestAnimationFrame(() => {
+        runnerTick = null;
+        updateRunnerDepth();
+      });
+    }
+    window.addEventListener("scroll", queueRunnerDepth, { passive: true });
+    window.addEventListener("resize", queueRunnerDepth);
 
     // ===== HYROX 正式賽制資料 =====
     // 重量以 HYROX 2024/25 賽季常見公告為準，正式比賽請依官方最新規則
@@ -1002,18 +1045,21 @@
     let lastDone = -1;
 
     function buildRoad() {
-      if (!course.offsetHeight) return;
+      if (!course || !roadSvg || !donePath || !chaser || !course.offsetHeight) return;
       const cr = course.getBoundingClientRect();
       const top = cr.top + window.scrollY;
       const W = cr.width;
       const pts = [];
-      const startEl = document.querySelector('[data-anchor="start"]').getBoundingClientRect();
+      const startNode = document.querySelector('[data-anchor="start"]');
+      const finishNode = document.querySelector('[data-anchor="finish"]');
+      if (!startNode || !finishNode) return;
+      const startEl = startNode.getBoundingClientRect();
       pts.push([W / 2, startEl.bottom + window.scrollY - top + 10]);
       course.querySelectorAll(".station .fig-wrap").forEach((el) => {
         const r = el.getBoundingClientRect();
         pts.push([r.left + r.width / 2 - cr.left, r.bottom + window.scrollY - top - 14]);
       });
-      const fin = document.querySelector('[data-anchor="finish"]').getBoundingClientRect();
+      const fin = finishNode.getBoundingClientRect();
       pts.push([W / 2, fin.top + window.scrollY - top + fin.height / 2]);
       let d = `M ${pts[0][0]} ${pts[0][1]}`;
       for (let i = 1; i < pts.length; i++) {
@@ -1035,7 +1081,7 @@
     }
 
     function updateCourse() {
-      if (!samples.length || document.body.dataset.tab !== "hyrox") return;
+      if (!samples.length || document.body.dataset.tab !== "hyrox" || !course || !chaser || !donePath || !hudPos) return;
       const cr = course.getBoundingClientRect();
       const targetY = window.innerHeight * 0.55 - cr.top;
       let idx = samples.findIndex((s) => s[2] >= targetY);
@@ -1054,7 +1100,7 @@
         if (done) current = Number(st.dataset.idx);
       });
       chaser.style.setProperty("--shirt", LEG_COLORS[Math.floor(Math.min(7, current + 1) / 2)]);
-      hudPos.textContent = current < 0 ? "起跑線" : current === 7 && len >= total - 8 ? "FINISH" : `第 ${HY_STATIONS[current].no} 站完成`;
+      hudPos.textContent = current < 0 ? "起跑線" : current === 7 && len >= total - 8 ? "FINISH" : HY_STATIONS[current] ? `第 ${HY_STATIONS[current].no} 站完成` : "賽道中";
       hudLegs.forEach((el, i) => el.classList.toggle("on", current >= 0 && i <= Math.floor(current / 2)));
       if (current > lastDone && current % 2 === 1 && current < 7) {
         hudFlash.textContent = `交棒！第 ${Math.floor(current / 2) + 2} 棒出發`;
@@ -1064,7 +1110,9 @@
       lastDone = current;
     }
     window.addEventListener("resize", buildRoad);
-    new ResizeObserver(buildRoad).observe(course);
+    if ("ResizeObserver" in window && course) {
+      new ResizeObserver(buildRoad).observe(course);
+    }
 
     // ===== 分頁 =====
     const TABS = ["home", "me", "board", "hyrox"];
@@ -1082,7 +1130,8 @@
       requestAnimationFrame(() => (document.documentElement.style.scrollBehavior = ""));
       lastDone = -1;
       if (name === "hyrox") buildRoad();
-      window.HY && window.HY.applyScroll();
+      queueRunnerDepth();
+      if (window.HY && typeof window.HY.applyScroll === "function") window.HY.applyScroll();
     }
     document.addEventListener("click", (e) => {
       const tab = e.target.closest(".tabs [data-tab]");
@@ -1101,6 +1150,7 @@
     window.addEventListener("DOMContentLoaded", () => {
       const initial = location.hash.slice(1);
       if (TABS.includes(initial) && initial !== "home") setTab(initial);
+      queueRunnerDepth();
     });
 
     // ===== 交棒載入動畫：只在切換到 HYROX 賽制時播放，點一下可跳過 =====
