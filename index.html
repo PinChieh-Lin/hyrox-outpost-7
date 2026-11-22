@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#f6b98a" />
 <title>第七屆 HYROX 前哨打卡站</title>
-<!-- 版本：20261122f。更新 JS/CSS 後，把下面三個 ?v= 的數字一起改掉，大家的手機就會抓新檔 -->
-<meta name="hyrox-build" content="20261122f" />
+<!-- 版本：20261122g。更新 JS/CSS 後，把下面三個 ?v= 的數字一起改掉，大家的手機就會抓新檔 -->
+<meta name="hyrox-build" content="20261122g" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Oswald:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="./shared.css?v=20261122f" />
+<link rel="stylesheet" href="./shared.css?v=20261122g" />
 <style>
   /* ===== 小人骨架用的動畫變數 ===== */
   @property --y { syntax: "<length>"; inherits: true; initial-value: 0px; }
@@ -612,6 +612,20 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .fig, .fig * { animation: none !important; }
+  }
+
+  /* ===== iPhone 穩定性 =====
+     1. 載入畫面收起來後，裡面的小人動畫也要停（原本隱藏了還一直跑，每一頁都在耗資源）
+     2. 手機不用毛玻璃（backdrop-filter）：大面積毛玻璃疊在每次捲動都會變色的背景上，
+        iOS / LINE 內建瀏覽器每一格都要重新模糊，記憶體吃緊時整頁會被系統關掉。改用較不透明的底色 */
+  .loader.is-gone, .loader.is-gone * { animation: none !important; }
+  .scene { contain: layout paint; }
+  @media (max-width: 720px), (hover: none) {
+    .tabs, .panel, .me-foot { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+    .tabs { background: color-mix(in srgb, var(--card) 96%, transparent); }
+    .panel { background: color-mix(in srgb, var(--card) 94%, transparent); }
+    .me-foot { background: var(--card); }
+    .goal-dialog::backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(30, 36, 66, 0.7); }
   }
 </style>
 </head>
@@ -1244,7 +1258,7 @@
     if (document.fonts) document.fonts.ready.then(buildRoad);
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="./races.js?v=20261122f"></script>
-  <script src="./live.js?v=20261122f"></script>
+  <script src="./races.js?v=20261122g"></script>
+  <script src="./live.js?v=20261122g"></script>
 </body>
 </html>
