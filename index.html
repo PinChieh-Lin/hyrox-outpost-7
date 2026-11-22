@@ -1119,14 +1119,20 @@
 
     // ===== 分頁 =====
     const TABS = ["home", "me", "board", "hyrox"];
-    function setTab(name, scrollTarget) {
+    const parseHashTab = () => {
+      const raw = (location.hash || "").replace(/^#/, "").trim().toLowerCase();
+      return TABS.includes(raw) ? raw : "home";
+    };
+    function setTab(name, scrollTarget, { fromHash = false } = {}) {
       if (!TABS.includes(name)) name = "home";
       const prevTab = document.body.dataset.tab;
       if (name === "hyrox" && prevTab !== "hyrox") showRelayLoader();
       document.body.dataset.tab = name;
       document.querySelectorAll(".tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
       document.querySelectorAll(".view").forEach((v) => (v.hidden = v.dataset.view !== name));
-      history.replaceState(null, "", name === "home" ? location.pathname + location.search : `#${name}`);
+      if (!fromHash) {
+        history.replaceState(null, "", name === "home" ? location.pathname + location.search : `#${name}`);
+      }
       document.documentElement.style.scrollBehavior = "auto";
       const target = scrollTarget && document.getElementById(scrollTarget);
       document.documentElement.scrollTop = target ? target.getBoundingClientRect().top + window.scrollY - 70 : 0;
@@ -1136,6 +1142,7 @@
       queueRunnerDepth();
       if (window.HY && typeof window.HY.applyScroll === "function") window.HY.applyScroll();
     }
+    window.setTab = setTab;
     document.addEventListener("click", (e) => {
       const tab = e.target.closest(".tabs [data-tab]");
       if (tab) return setTab(tab.dataset.tab);
@@ -1150,9 +1157,12 @@
       document.querySelector(`.tabs [data-tab="${next}"]`).focus();
     });
 
+    window.addEventListener("hashchange", () => {
+      setTab(parseHashTab(), null, { fromHash: true });
+    });
+
     window.addEventListener("DOMContentLoaded", () => {
-      const initial = location.hash.slice(1);
-      if (TABS.includes(initial) && initial !== "home") setTab(initial);
+      setTab(parseHashTab(), null, { fromHash: true });
       queueRunnerDepth();
     });
 
