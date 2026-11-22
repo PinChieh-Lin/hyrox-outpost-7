@@ -339,7 +339,7 @@
       .join("");
 
     const pre = !started();
-    const maxKey = pre ? START_KEY() : lastOpenKey();
+    const maxKey = pre ? END_KEY() : lastOpenKey();
     const tasksHtml = `${pre ? `<p class="me-notice">第七屆 ${md(parseKey(START_KEY()))} 開始，當天起才能送出打卡。現在可以先看看有哪些項目。</p>` : ""}
           <div class="me-date">
             <button data-act="prev" aria-label="前一天">←</button>
@@ -349,11 +349,14 @@
           </div>
           <div class="me-tasks">${TASKS.map((t) => {
             const lock = !draft[t.key] && lockedBy(p.id, personDate, t);
+            const isTodayHyrox = t.key === "hyrox_challenge" && personDate === TODAY_KEY && inRange(personDate);
             const sub = lock
               ? `本週已在 ${md(parseKey(lock))} 打卡`
-              : t.key === "hyrox_challenge" && todayDraw && personDate === TODAY_KEY
-                ? `今日：${esc(todayDraw.home_move)}`
-                : t.sub;
+              : isTodayHyrox && todayDraw
+                ? `今日挑戰：${esc(todayDraw.name)}（${esc(todayDraw.home_move)}）`
+                : isTodayHyrox && !todayDraw
+                  ? '<button type="button" class="me-draw-link" data-act="goto-draw">今日尚未抽卡，點我去抽卡</button>'
+                  : esc(t.sub);
             return `<label class="me-task ${draft[t.key] ? "is-on" : ""} ${lock ? "is-locked" : ""}"><input type="checkbox" data-k="${t.key}" ${draft[t.key] ? "checked" : ""} ${lock ? "disabled" : ""} />
               <span class="me-task-no">${t.no}</span><b>${t.label}${pts(t) > 1 ? ` <em class="me-pt">+${pts(t)}</em>` : ""}</b><small>${sub}</small><i class="me-check">${lock ? "–" : "✓"}</i></label>`;
           }).join("")}</div>
@@ -623,11 +626,29 @@
     notify(`名字已改成「${name}」`);
   }
 
+  function gotoTodayDraw() {
+    if (typeof window.setTab === "function") {
+      window.setTab("home", "draw");
+      return;
+    }
+    const homeTab = document.querySelector('.tabs [data-tab="home"]');
+    if (homeTab) homeTab.click();
+    requestAnimationFrame(() => {
+      const draw = document.getElementById("draw");
+      if (!draw) return;
+      document.documentElement.scrollTop = draw.getBoundingClientRect().top + window.scrollY - 70;
+    });
+  }
+
   function personalEvents() {
     const el = $("person-area");
     if (!el) return;
+    const canPickDate = (k) => {
+      if (!inRange(k)) return false;
+      return !started() || isOpen(k);
+    };
     const setDate = (k) => {
-      if (!isOpen(k)) return;
+      if (!canPickDate(k)) return;
       personDate = k;
       dirty = false;
       renderPersonal();
@@ -645,6 +666,12 @@
       if (row) return setDate(row.dataset.date);
       const act = e.target.closest("[data-act]")?.dataset.act;
       if (!act) return;
+      if (act === "goto-draw") {
+        e.preventDefault();
+        e.stopPropagation();
+        gotoTodayDraw();
+        return;
+      }
       const form = el.querySelector('[data-form="name"]');
       if (act === "edit-name") {
         form.hidden = false;
@@ -657,7 +684,7 @@
       } else if (act === "next") {
         setDate(keyOf(addDays(parseKey(personDate), 1)));
       } else if (act === "today") {
-        setDate(lastOpenKey());
+        setDate(started() ? lastOpenKey() : START_KEY());
       } else if (act === "save") {
         saveDay();
       } else if (act === "set-goal") {

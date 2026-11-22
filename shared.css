@@ -121,6 +121,7 @@ button:disabled { cursor: default; }
 .me-task input { position: absolute; opacity: 0; pointer-events: none; }
 .me-task-no { grid-row: span 2; font-size: 1.4rem; line-height: 1.1; }
 .me-task small { font-size: 0.75rem; opacity: 0.7; }
+.me-draw-link { border: 0; padding: 0; background: none; color: inherit; font: inherit; font-size: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .me-check { position: absolute; right: 12px; top: 50%; translate: 0 -50%; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 0.8rem; font-weight: 900; }
 .me-task:has(input:focus-visible) { outline: 2px solid currentColor; outline-offset: 2px; }
 .me-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-top: 18px; padding: 14px 16px; }

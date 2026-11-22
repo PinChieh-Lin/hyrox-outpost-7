@@ -34,7 +34,7 @@
     --skin: #c98a6b;
     --m1: #d9b23f; --m2: #8fc7c0; --m3: #e9806a; --m4: #f2ede2;
   }
-  body { font-family: "Noto Sans TC", sans-serif; color: var(--ink); background: var(--sky2); transition: color 0.5s ease; }
+  body { font-family: "Noto Sans TC", sans-serif; color: var(--ink); background: var(--sky2); transition: color 0.5s ease; overflow-x: hidden; }
   body.is-night { --ink: #ede6f5; --card: #1e2442; }
   .panel, .player, .rank-item, .checkin-table .col-name, .me-card, .me-task, .history-table .col-name { transition: background-color 0.5s ease, color 0.5s ease; }
   .serif { font-family: "DM Serif Display", serif; font-weight: 400; }
@@ -505,9 +505,10 @@
   @media (max-width: 720px) {
     input, select, textarea { font-size: 16px; }
     .tabs { top: calc(env(safe-area-inset-top) + 32px); bottom: auto; left: 0; right: 0; translate: none; max-width: none; width: 100%; justify-content: space-around; gap: 0;
-      border-radius: 0 0 20px 20px; border-top: 0; padding: 6px 4px; }
+      border-radius: 0 0 20px 20px; border-top: 0; padding: 6px 4px; overflow-x: hidden; }
     .birds { top: calc(10vh + 58px); }
-    .tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 0.7rem; border-radius: 14px; }
+    .tabs button { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 0.7rem; border-radius: 14px; }
+    .tabs button span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
     .tab-ico { margin: 0; font-size: 1.25rem; line-height: 1; }
     main { padding-top: calc(84px + env(safe-area-inset-top)); padding-bottom: 0; }
     .runners { bottom: 3vh; gap: 10px; }
@@ -561,8 +562,10 @@
     .me-players { flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
     .me-chip { font-size: 0.85rem; padding: 3px 10px 3px 3px; }
     .me-chip .avatar { width: 26px; height: 26px; font-size: 0.78rem; }
-    .me-date { display: grid; grid-template-columns: auto 1fr auto auto; }
+    .me-date { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px max-content; gap: 6px; align-items: center; }
     .me-date input { min-width: 0; width: 100%; }
+    .me-date button[data-act="prev"], .me-date button[data-act="next"] { width: 36px; padding-inline: 0; }
+    .me-date button[data-act="today"] { grid-column: auto; justify-self: stretch; margin-top: 0; padding: 7px 10px; white-space: nowrap; }
     .me-tasks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .me-task { padding: 12px 34px 12px 12px; column-gap: 8px; }
     .me-task b { font-size: 0.95rem; }

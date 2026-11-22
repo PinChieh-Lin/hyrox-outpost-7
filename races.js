@@ -88,9 +88,8 @@
   function renderList(list) {
     const el = document.getElementById("race-list");
     if (!el) return;
-    const others = list.filter((r) => !r.main);
-    const upcoming = others.filter((r) => r.days >= 0);
-    const done = others.filter((r) => r.days < 0).reverse(); // 最近比完的排前面
+    const upcoming = list.filter((r) => r.days >= 0);
+    const done = list.filter((r) => r.days < 0).reverse(); // 最近比完的排前面
     const nextName = upcoming[0] ? upcoming[0].name : null;
     const html = upcoming.length
       ? upcoming
