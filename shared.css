@@ -1,0 +1,194 @@
+/* 三個提案共用的版面機制；顏色、字型、質感由各頁自己決定 */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+body { margin: 0; -webkit-font-smoothing: antialiased; }
+button { font: inherit; cursor: pointer; }
+button:disabled { cursor: default; }
+
+.wrap { width: min(1080px, 100% - 32px); margin-inline: auto; position: relative; z-index: 1; }
+
+.roster { display: flex; flex-wrap: wrap; gap: 8px; }
+.player { display: inline-flex; align-items: center; gap: 8px; }
+.avatar {
+  display: inline-grid; place-items: center; flex: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  font-size: 0.85rem; font-weight: 900;
+}
+
+/* 日期切換 */
+.day-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.day-chip { display: flex; flex-direction: column; align-items: center; min-width: 56px; padding: 6px 10px; line-height: 1.2; }
+.day-chip small { font-size: 0.7rem; opacity: 0.75; }
+.day-chip.is-future { opacity: 0.35; }
+
+/* 打卡表 */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.checkin-table { width: 100%; min-width: 720px; border-collapse: separate; border-spacing: 0; }
+.checkin-table th, .checkin-table td { text-align: center; padding: 10px 6px; white-space: nowrap; }
+.checkin-table .col-name { text-align: left; position: sticky; left: 0; z-index: 1; }
+.checkin-table td.col-name { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.th-no, .th-label { display: block; line-height: 1.2; }
+.th-no { font-size: 0.7rem; letter-spacing: 0.08em; opacity: 0.7; }
+.th-label { font-size: 0.8rem; }
+.cell { width: 36px; height: 36px; font-weight: 900; transition: transform 0.15s ease; }
+.cell.is-locked { opacity: 0.35; cursor: not-allowed; }
+.th-pt { display: inline-block; margin-left: 3px; padding: 0 4px; font-size: 0.65rem; font-weight: 900; border: 1px solid currentColor; border-radius: 4px; vertical-align: 1px; }
+.me-task.is-locked { opacity: 0.5; cursor: not-allowed; }
+.me-pt { font-style: normal; font-size: 0.75rem; margin-left: 2px; }
+.cell:not(:disabled):active { transform: scale(0.92); }
+.score-cell { position: relative; }
+.score-cell b { font-size: 1.15rem; }
+.score-cell small { opacity: 0.6; margin-left: 1px; }
+.cap { display: block; font-style: normal; font-size: 0.6rem; letter-spacing: 0.1em; }
+
+/* 排行 */
+.ranking { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.rank-item {
+  display: grid; grid-template-columns: 2.4rem 30px 4.5rem 1fr auto;
+  align-items: center; gap: 12px; padding: 10px 14px;
+}
+.rank-no { font-size: 1.3rem; }
+.rank-name { font-weight: 700; }
+.bar { height: 12px; overflow: hidden; }
+.bar i { display: block; height: 100%; transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.rank-score b { font-size: 1.3rem; }
+.rank-score small { opacity: 0.6; }
+
+/* 抽卡 */
+.draw { display: grid; justify-items: center; gap: 18px; text-align: center; }
+.draw-meta { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.draw-meta strong { font-size: 2rem; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+.deck { position: relative; width: 100%; height: 340px; display: flex; justify-content: center; align-items: center; perspective: 1200px; }
+.card {
+  position: absolute; width: 190px; height: 270px;
+  transform: translateX(calc(var(--i) * 40px)) rotate(calc(var(--i) * 6deg));
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease;
+}
+.card-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.face {
+  position: absolute; inset: 0; overflow: hidden;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  display: flex; flex-direction: column; padding: 16px; text-align: left;
+}
+.back { align-items: center; justify-content: center; }
+.front { transform: rotateY(180deg); gap: 4px; }
+.front-station { font-size: 0.75rem; letter-spacing: 0.14em; }
+.front-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; }
+.front-home-label { font-size: 0.7rem; opacity: 0.7; }
+.front-home { font-size: 1.35rem; font-weight: 900; line-height: 1.25; }
+.front-detail { font-size: 0.78rem; line-height: 1.5; margin-top: 6px; }
+.front-level { margin-top: auto; font-size: 0.75rem; letter-spacing: 0.1em; }
+.deck.is-shuffling .card { animation: shuffle 0.36s ease-in-out 3 alternate; animation-delay: calc((var(--i) + 2) * 45ms); }
+@keyframes shuffle {
+  to { transform: translateX(calc(var(--i) * -34px)) translateY(-16px) rotate(calc(var(--i) * -9deg)); }
+}
+.deck.is-picked .card { opacity: 0; transform: translateY(50px) scale(0.85); }
+.deck.is-picked .card.is-chosen { opacity: 1; transform: translateY(-4px) scale(1.16); z-index: 5; }
+.card.is-flipped .card-inner { transform: rotateY(180deg); }
+.draw-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.draw-note { max-width: 34rem; margin: 0; line-height: 1.7; }
+
+/* 個人打卡 */
+.me-grid { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 24px; align-items: start; }
+.me-label { font-size: 0.8rem; margin-bottom: 8px; opacity: 0.7; }
+.me-players { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.me-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 3px 3px; }
+.me-head { display: flex; align-items: center; gap: 12px; }
+.avatar.big { width: 52px; height: 52px; font-size: 1.3rem; }
+.me-who { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.me-name { font-size: 1.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-who small { opacity: 0.65; font-size: 0.8rem; }
+.me-edit { padding: 6px 10px; font-size: 0.8rem; white-space: nowrap; }
+.me-name-form { margin-top: 12px; display: grid; gap: 8px; }
+.me-name-form input { width: 100%; padding: 9px 12px; font: inherit; }
+.me-name-actions { display: flex; gap: 8px; }
+.me-name-actions button { flex: 1; padding: 8px; }
+.me-error { margin: 0; font-size: 0.82rem; }
+.me-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+.me-stats div { padding: 10px 12px; }
+.me-stats span { display: block; font-size: 0.75rem; opacity: 0.7; }
+.me-stats b { font-size: 1.8rem; }
+.me-stats small { opacity: 0.6; margin-left: 2px; }
+.me-date { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+.me-date input { padding: 7px 10px; font: inherit; }
+.me-date button { padding: 7px 12px; }
+.me-tasks { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.me-task { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; padding: 14px 40px 14px 14px; cursor: pointer; user-select: none; transition: transform 0.15s ease; }
+.me-task:active { transform: scale(0.98); }
+.me-task input { position: absolute; opacity: 0; pointer-events: none; }
+.me-task-no { grid-row: span 2; font-size: 1.4rem; line-height: 1.1; }
+.me-task small { font-size: 0.75rem; opacity: 0.7; }
+.me-check { position: absolute; right: 12px; top: 50%; translate: 0 -50%; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 0.8rem; font-weight: 900; }
+.me-task:has(input:focus-visible) { outline: 2px solid currentColor; outline-offset: 2px; }
+.me-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-top: 18px; padding: 14px 16px; }
+.me-day-score b { font-size: 1.8rem; }
+.me-day-score em { font-style: normal; font-size: 0.75rem; margin-left: 8px; }
+.me-save { padding: 12px 24px; font-weight: 900; }
+.me-toast { margin: 10px 0 0; font-size: 0.85rem; }
+.me-history { margin-top: 28px; }
+.me-history h3 { margin: 0 0 10px; font-size: 1.1rem; }
+.history-table { width: 100%; min-width: 620px; border-collapse: separate; border-spacing: 0; }
+.history-table th, .history-table td { text-align: center; padding: 8px 6px; white-space: nowrap; }
+.history-table .col-name { text-align: left; position: sticky; left: 0; z-index: 1; }
+.history-table td.col-name small { margin-left: 6px; opacity: 0.6; font-size: 0.75rem; }
+.history-table tbody tr { cursor: pointer; }
+.dot { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 0.7rem; font-weight: 900; }
+
+/* 總分排行 */
+.podium { display: flex; justify-content: center; align-items: flex-end; gap: clamp(8px, 2vw, 20px); margin: 10px 0 28px; }
+.podium-item { display: flex; flex-direction: column; align-items: center; gap: 6px; width: clamp(92px, 22vw, 150px); text-align: center; }
+.podium-name { font-size: 1.05rem; }
+.podium-score { font-size: 1.4rem; font-weight: 900; }
+.podium-block { width: 100%; display: grid; place-items: center; }
+.podium-block span { font-size: 2rem; font-weight: 900; }
+.rank-1 .podium-block { height: 130px; }
+.rank-2 .podium-block { height: 96px; }
+.rank-3 .podium-block { height: 70px; }
+.total-table { width: 100%; min-width: 620px; border-collapse: separate; border-spacing: 0; }
+.total-table th, .total-table td { text-align: center; padding: 12px 8px; white-space: nowrap; }
+.total-table .col-name { text-align: left; }
+.total-table td.col-name { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.total-table td b { font-size: 1.2rem; }
+.total-table td small { opacity: 0.6; }
+.total-rank { font-size: 1.1rem; font-weight: 900; }
+.total-cell { min-width: 140px; }
+.total-cell b { font-size: 1.5rem !important; }
+.total-cell .bar { display: block; height: 6px; margin-top: 4px; }
+
+@media (max-width: 760px) {
+  .me-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+  .deck { height: 300px; }
+  .card { width: 160px; height: 236px; transform: translateX(calc(var(--i) * 26px)) rotate(calc(var(--i) * 5deg)); }
+  .rank-item { grid-template-columns: 2rem 30px 3.6rem 1fr auto; gap: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .deck.is-shuffling .card { animation: none; }
+  .card, .card-inner, .bar i { transition-duration: 0.01s; }
+}
+
+/* 正式版（live.js）用 */
+.cell { display: inline-grid; place-items: center; }
+.name-link { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.name-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.empty-cell { padding: 24px !important; opacity: 0.7; }
+.draw-who { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.draw-who select { padding: 8px 12px; font: inherit; border-radius: 999px; }
+.draw-error { margin: 0; font-size: 0.88rem; color: #e0533f; font-weight: 700; }
+.live-banner {
+  position: fixed; left: 50%; bottom: 24px; z-index: 80; max-width: calc(100% - 32px);
+  translate: -50% 20px; opacity: 0; pointer-events: none;
+  padding: 12px 18px; border-radius: 14px; font-weight: 700; font-size: 0.92rem;
+  background: #2a2236; color: #fff; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  transition: opacity 0.25s ease, translate 0.25s ease;
+}
+.live-banner.is-show { opacity: 1; translate: -50% 0; }
+.live-banner[data-type="error"] { background: #b8392b; }
+.me-notice { margin: 0 0 14px; padding: 10px 14px; border-radius: 12px; font-size: 0.88rem; font-weight: 700; background: rgba(232, 119, 79, 0.14); color: #c4532c; }

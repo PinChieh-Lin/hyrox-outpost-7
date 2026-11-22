@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#f6b98a" />
+<title>第七屆 HYROX 前哨打卡站</title>
+<!-- 版本：20261122c。更新 JS/CSS 後，把下面三個 ?v= 的數字一起改掉，大家的手機就會抓新檔 -->
+<meta name="hyrox-build" content="20261122c" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Oswald:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="./shared.css?v=20261122c" />
+<style>
+  /* ===== 小人骨架用的動畫變數 ===== */
+  @property --y { syntax: "<length>"; inherits: true; initial-value: 0px; }
+  @property --x { syntax: "<length>"; inherits: true; initial-value: 0px; }
+  @property --lean { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+  @property --aF { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+  @property --aB { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+  @property --tF { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+  @property --tB { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+  @property --sF { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+  @property --sB { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+  @property --ball { syntax: "<length>"; inherits: true; initial-value: 0px; }
+
+  :root {
+    --sky1: #f9d9c2; --sky2: #fff4e6; --sun: #fff8ee;
+    --far: #f3c3a4; --mid: #eba483; --near: #6b5560; --road: #5a4a55;
+    --ink: #3b2a2a; --card: #fff8f0; --accent: #e8774f;
+    --night: 0; --p: 0;
+    /* HYROX 分頁 */
+    --hy-bg: #0c0c0d; --hy-road: #d9b23f; --hy-edge: #8a6f1f; --hy-done: #8fc7c0; --hy-text: #f2ede2; --hy-muted: #9b968c;
+    --skin: #c98a6b;
+    --m1: #d9b23f; --m2: #8fc7c0; --m3: #e9806a; --m4: #f2ede2;
+  }
+  body { font-family: "Noto Sans TC", sans-serif; color: var(--ink); background: var(--sky2); transition: color 0.5s ease; }
+  body.is-night { --ink: #ede6f5; --card: #1e2442; }
+  .panel, .player, .rank-item, .checkin-table .col-name, .me-card, .me-task, .history-table .col-name { transition: background-color 0.5s ease, color 0.5s ease; }
+  .serif { font-family: "DM Serif Display", serif; font-weight: 400; }
+  .os { font-family: "Oswald", sans-serif; }
+  [hidden] { display: none !important; }
+
+  /* ===== 分頁列 ===== */
+  .tabs { position: fixed; top: 44px; left: 50%; translate: -50% 0; z-index: 30; display: flex; gap: 4px; padding: 5px; max-width: calc(100% - 20px); overflow-x: auto;
+    background: color-mix(in srgb, var(--card) 78%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); border-radius: 999px; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { border: 0; background: transparent; color: var(--ink); padding: 8px 16px; border-radius: 999px; font-weight: 700; font-size: 0.9rem; white-space: nowrap; transition: background-color 0.2s, color 0.2s; }
+  .tabs button:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: #fff; }
+  body[data-tab="hyrox"] .tabs { background: rgba(20, 20, 22, 0.86); border-color: #333; }
+  body[data-tab="hyrox"] .tabs button { color: var(--hy-text); }
+  body[data-tab="hyrox"] .tabs button[aria-selected="true"] { background: var(--hy-road); color: #141416; }
+
+  /* ===== C：一天的天色背景 ===== */
+  .scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: linear-gradient(to bottom, var(--sky1) 0%, var(--sky2) 70%); }
+  .sun { position: absolute; left: 50%; width: min(46vw, 420px); aspect-ratio: 1; border-radius: 50%; background: var(--sun);
+    translate: -50% 0; top: calc(16vh + var(--p) * 48vh); opacity: calc(1 - var(--night) * 1.4); }
+  .moon { position: absolute; right: 14vw; top: 12vh; width: 70px; aspect-ratio: 1; border-radius: 50%; background: #ede6d3; box-shadow: inset -14px -6px 0 #cfc6ad; opacity: var(--night); }
+  .stars { position: absolute; inset: 0 0 45% 0; opacity: var(--night); }
+  .stars i { position: absolute; width: 3px; height: 3px; background: #f3eedf; border-radius: 50%; }
+  .clouds { position: absolute; inset: 0; opacity: calc(1 - var(--night)); }
+  .cloud { position: absolute; height: 14px; border-radius: 99px; background: var(--sun); opacity: 0.7; }
+  .birds { position: absolute; top: 10vh; left: 18vw; opacity: calc(1 - var(--night)); transform: translateX(calc(var(--p) * 30vw)); }
+  .skyline { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 62vh; }
+  .skyline .far { fill: var(--far); }
+  .skyline .mid { fill: var(--mid); }
+  .skyline .near { fill: var(--near); }
+  .skyline .road { fill: var(--road); }
+  .skyline .lamp { fill: var(--near); }
+  .skyline .win { fill: #ffd98a; opacity: var(--night); }
+  .skyline .lampglow { fill: #ffd98a; opacity: var(--night); }
+  .skyline .dash { fill: #f6e7d2; opacity: 0.8; }
+  .runners { position: absolute; left: 50%; bottom: 3vh; translate: -50% 0; display: flex; gap: clamp(8px, 2vw, 26px); align-items: flex-end; }
+  .runner { width: clamp(22px, 2.6vw, 34px); animation: bob 0.5s ease-in-out infinite alternate; animation-delay: calc(var(--d) * -0.13s); }
+  .runner svg { width: 100%; height: auto; display: block; }
+  @keyframes bob { to { transform: translateY(-4px); } }
+  .hy-scene { position: fixed; inset: 0; z-index: 0; display: none; background: radial-gradient(ellipse at 50% 0%, #17171a, var(--hy-bg) 70%); }
+  body[data-tab="hyrox"] { background: var(--hy-bg); color: var(--hy-text); }
+  body[data-tab="hyrox"] .scene { display: none; }
+  body[data-tab="hyrox"] .hy-scene { display: block; }
+
+  /* ===== C：內容 ===== */
+  main { position: relative; z-index: 1; }
+  .view-c { padding-bottom: 28vh; }
+  section { padding: 22vh 0 0; }
+  .panel { background: color-mix(in srgb, var(--card) 84%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    border-radius: 24px; padding: clamp(20px, 3.4vw, 38px); border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); }
+  .time { display: inline-flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .time .serif { font-size: 2.4rem; line-height: 1; color: var(--accent); }
+  .time span:last-child { font-size: 0.85rem; letter-spacing: 0.12em; opacity: 0.75; }
+  h2 { margin: 0 0 6px; font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 900; }
+  .lead { margin: 0 0 22px; line-height: 1.8; opacity: 0.8; }
+
+  .hero { min-height: 100vh; display: grid; align-content: start; justify-items: center; text-align: center; padding-top: 14vh; }
+  .hero-small { letter-spacing: 0.3em; font-size: 0.85rem; opacity: 0.8; }
+  .hero h1 { margin: 10px 0 0; font-size: clamp(2.2rem, 6.4vw, 4.4rem); font-weight: 900; line-height: 1.15; }
+  .hero h1 .serif { display: block; font-size: 1.25em; color: var(--accent); letter-spacing: 0.02em; }
+  .hero-date { margin-top: 10px; font-size: 0.9rem; font-weight: 700; color: var(--accent); }
+  .draw-who select { background: var(--card); color: var(--ink); border: 1.5px solid color-mix(in srgb, var(--ink) 25%, transparent); }
+  .hero p { max-width: 32rem; line-height: 1.9; margin: 14px auto 22px; opacity: 0.85; }
+  .roster { justify-content: center; }
+  .player { background: color-mix(in srgb, var(--card) 80%, transparent); padding: 4px 14px 4px 4px; border-radius: 999px; font-weight: 700; font-size: 0.9rem; }
+  .avatar { color: #fff; }
+  .avatar[data-i="0"] { background: #e8774f; }
+  .avatar[data-i="1"] { background: #5aa2a0; }
+  .avatar[data-i="2"] { background: #4a5a8c; }
+  .avatar[data-i="3"] { background: #d9a441; }
+  .avatar[data-i="4"] { background: #c4607a; }
+  .avatar[data-i="5"] { background: #7c8a52; }
+
+  .day-chip { background: transparent; color: var(--ink); border: 1.5px solid color-mix(in srgb, var(--ink) 25%, transparent); border-radius: 14px; }
+  .day-chip.is-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .day-chip.is-today:not(.is-active) { border-color: var(--accent); color: var(--accent); }
+  .checkin-table { margin-top: 16px; }
+  .checkin-table thead th, .history-table thead th, .total-table thead th { border-bottom: 1.5px solid color-mix(in srgb, var(--ink) 20%, transparent); font-weight: 700; }
+  .th-no { font-family: "DM Serif Display", serif; font-size: 1rem; color: var(--accent); opacity: 1; letter-spacing: 0; }
+  .checkin-table tbody td, .history-table tbody td, .total-table tbody td { border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); }
+  .checkin-table .col-name, .history-table .col-name { background: var(--card); }
+  .cell { border-radius: 50%; background: color-mix(in srgb, var(--ink) 8%, transparent); border: 0; color: #fff; }
+  .cell.is-on { background: var(--accent); }
+  .cell:not(:disabled):hover { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .score-cell b { font-family: "DM Serif Display", serif; font-size: 1.6rem; font-weight: 400; }
+  .score-cell.week b { color: var(--accent); }
+  .cap { color: var(--accent); }
+
+  .rank-item { background: color-mix(in srgb, var(--card) 70%, transparent); border-radius: 16px; }
+  .rank-no { font-family: "DM Serif Display", serif; font-size: 1.7rem; color: var(--accent); }
+  .bar { background: color-mix(in srgb, var(--ink) 10%, transparent); border-radius: 99px; height: 10px; }
+  .bar i { background: linear-gradient(90deg, #f6b26b, var(--accent)); border-radius: 99px; }
+  .rank-score b { font-family: "DM Serif Display", serif; font-size: 1.7rem; font-weight: 400; }
+
+  .draw-meta span { opacity: 0.75; letter-spacing: 0.1em; }
+  .draw-meta strong { font-family: "DM Serif Display", serif; font-size: 3.2rem; font-weight: 400; color: #ffd98a; }
+  .face { border-radius: 18px; }
+  .back { background: #2a3160; color: #ede6d3; border: 2px solid #ffd98a; }
+  .back-mark { position: absolute; top: 22px; width: 44px; height: 44px; border-radius: 50%; background: #ede6d3; box-shadow: inset -10px -4px 0 #cfc6ad; }
+  .back-text { font-family: "DM Serif Display", serif; font-size: 2rem; letter-spacing: 0.12em; margin-top: 40px; }
+  .back-q { position: absolute; bottom: 14px; font-size: 0.75rem; letter-spacing: 0.3em; opacity: 0.7; }
+  .back-q::before { content: "00:00 "; }
+  .front { background: #fff8f0; color: #3b2a2a; }
+  .front-station { color: var(--accent); font-weight: 700; }
+  .front-level { color: var(--accent); }
+  .btn-draw { background: #ffd98a; color: #2a2236; border: 0; border-radius: 999px; padding: 14px 30px; font-weight: 900; font-size: 1.05rem; transition: transform 0.15s; }
+  .btn-draw:not(:disabled):hover { transform: translateY(-2px); }
+  .btn-draw:disabled { background: color-mix(in srgb, #ffd98a 40%, transparent); color: var(--ink); }
+  .btn-ghost { background: transparent; color: var(--ink); border: 1.5px solid color-mix(in srgb, var(--ink) 35%, transparent); border-radius: 999px; padding: 12px 18px; }
+  .draw-note { opacity: 0.85; }
+  .draw-note b { color: #ffd98a; }
+
+  .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .timeline li { display: grid; grid-template-columns: 3rem 1fr; gap: 14px; padding: 12px 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); }
+  .timeline .serif { font-size: 1.8rem; color: var(--accent); line-height: 1; }
+  .timeline h3 { margin: 0 0 2px; font-size: 1.05rem; font-weight: 900; }
+  .timeline p { margin: 0; opacity: 0.75; font-size: 0.9rem; }
+  .rule-note { display: block; margin-top: 6px; padding: 6px 10px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--ink); font-weight: 700; font-size: 0.85rem; }
+  .caps { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  .caps span { background: var(--accent); color: #fff; border-radius: 999px; padding: 8px 18px; font-weight: 700; }
+  .link-btn { border: 0; background: none; color: var(--accent); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; padding: 0; }
+
+  /* ===== 個人打卡 ===== */
+  .page-top { padding-top: max(13vh, 120px); }
+  .me-chip { background: color-mix(in srgb, var(--card) 70%, transparent); border: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent); border-radius: 999px; color: var(--ink); font-weight: 700; font-size: 0.88rem; }
+  .me-chip.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .me-card { background: color-mix(in srgb, var(--card) 70%, transparent); border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); border-radius: 20px; padding: 16px; }
+  .me-name { font-weight: 900; }
+  .me-edit, .me-date button, .me-name-actions button { background: transparent; color: var(--ink); border: 1.5px solid color-mix(in srgb, var(--ink) 25%, transparent); border-radius: 999px; }
+  .me-name-actions .is-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .me-name-form input, .me-date input { background: var(--card); color: var(--ink); border: 1.5px solid color-mix(in srgb, var(--ink) 25%, transparent); border-radius: 12px; color-scheme: light; }
+  body.is-night .me-date input { color-scheme: dark; }
+  .me-name-form input:focus, .me-date input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .me-error { color: #d0453a; }
+  .me-stats div { background: color-mix(in srgb, var(--ink) 6%, transparent); border-radius: 14px; }
+  .me-stats b { font-family: "DM Serif Display", serif; font-weight: 400; color: var(--accent); }
+  .me-task { background: color-mix(in srgb, var(--ink) 5%, transparent); border: 1.5px solid transparent; border-radius: 18px; }
+  .me-task:hover { border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+  .me-task.is-on { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); }
+  .me-task-no { font-family: "DM Serif Display", serif; color: var(--accent); }
+  .me-check { border: 1.5px solid color-mix(in srgb, var(--ink) 25%, transparent); color: transparent; }
+  .me-task.is-on .me-check { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .me-foot { background: color-mix(in srgb, var(--ink) 5%, transparent); border-radius: 18px; }
+  .me-day-score b { font-family: "DM Serif Display", serif; font-weight: 400; color: var(--accent); }
+  .me-day-score em { color: var(--accent); }
+  .me-save { background: var(--accent); color: #fff; border: 0; border-radius: 999px; transition: transform 0.15s; }
+  .me-save:hover { transform: translateY(-2px); }
+  .me-toast { color: var(--accent); font-weight: 700; }
+  .history-table tbody tr:hover td { background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+  .history-table tr.is-sel td { background: color-mix(in srgb, var(--accent) 14%, var(--card)); }
+  .dot { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .dot.is-on { background: var(--accent); color: #fff; }
+
+  /* ===== 總分排行 ===== */
+  .podium-name { font-weight: 900; }
+  .podium-score { font-family: "DM Serif Display", serif; font-weight: 400; color: var(--accent); }
+  .podium-block { border-radius: 16px 16px 0 0; }
+  .podium-block span { font-family: "DM Serif Display", serif; font-weight: 400; color: #fff; }
+  .rank-1 .podium-block { background: #e8774f; }
+  .rank-2 .podium-block { background: #f0a073; }
+  .rank-3 .podium-block { background: #f5c39b; }
+  .total-table .is-cur { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .total-rank { font-family: "DM Serif Display", serif; font-weight: 400 !important; color: color-mix(in srgb, var(--ink) 45%, transparent); }
+  .total-table tr.is-top .total-rank { color: var(--accent); }
+  .total-cell b { font-family: "DM Serif Display", serif; font-weight: 400; color: var(--accent); }
+  .note-list { margin: 18px 0 0; padding-left: 1.2em; line-height: 1.9; opacity: 0.8; font-size: 0.9rem; }
+
+  /* ===== 載入畫面：2 人交棒 ===== */
+  .loader { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: #0c0c0d; color: #ede6f5; cursor: pointer; transition: opacity 0.45s ease, visibility 0.45s; }
+  .loader.is-gone { opacity: 0; visibility: hidden; pointer-events: none; }
+  .loader.is-instant { transition: none; }
+  .loader-stage { position: relative; width: min(520px, 90vw); height: 170px; }
+  .loader-track { position: absolute; left: 0; right: 0; bottom: 18px; height: 6px; background: #ffd98a; border-radius: 3px; }
+  .loader-track::before { content: ""; position: absolute; left: 50%; top: -14px; width: 3px; height: 34px; background: var(--accent); }
+  .loader .fig { position: absolute; bottom: 18px; width: 110px; height: 110px; }
+  .runA { left: 0; --shirt: var(--accent); animation: run 0.6s linear infinite, legA 2.8s linear infinite; }
+  .runB { left: 0; --shirt: #5aa2a0; animation: run 0.6s linear infinite, legB 2.8s linear infinite; }
+  @keyframes legA { 0% { translate: -20% 0; opacity: 1; } 50% { translate: 165% 0; opacity: 1; } 62%, 100% { translate: 185% 0; opacity: 0; } }
+  @keyframes legB { 0%, 38% { translate: 205% 0; opacity: 1; } 100% { translate: 400% 0; opacity: 1; } }
+  .runA .baton { display: inline; animation: batonA 2.8s steps(1) infinite; }
+  .runB .baton { display: inline; animation: batonB 2.8s steps(1) infinite; }
+  @keyframes batonA { 0% { opacity: 1; } 50% { opacity: 0; } }
+  @keyframes batonB { 0% { opacity: 0; } 50% { opacity: 1; } }
+  .loader-text { text-align: center; margin-top: 22px; }
+  .loader-text b { display: block; font-family: "DM Serif Display", serif; font-weight: 400; font-size: 2rem; letter-spacing: 0.2em; color: #ffd98a; }
+  .loader-text span { opacity: 0.75; font-size: 0.9rem; }
+  .loader-bar { width: min(320px, 70vw); height: 4px; margin: 14px auto 0; background: rgba(255, 255, 255, 0.15); border-radius: 2px; overflow: hidden; }
+  .loader-bar i { display: block; height: 100%; width: 0; background: #ffd98a; animation: fill 1.7s ease-out forwards; }
+  @keyframes fill { to { width: 100%; } }
+
+  /* ===== 小人骨架 ===== */
+  .fig { overflow: visible; }
+  .fig .whole { transform: translate(var(--x), var(--y)); }
+  .fig .upper { transform: rotate(var(--lean)); transform-origin: 60px 72px; }
+  .fig .armF { transform: rotate(var(--aF)); transform-origin: 60px 44px; }
+  .fig .armB { transform: rotate(var(--aB)); transform-origin: 60px 44px; }
+  .fig .legF { transform: rotate(var(--tF)); transform-origin: 60px 72px; }
+  .fig .legB { transform: rotate(var(--tB)); transform-origin: 60px 72px; }
+  .fig .legF .shin { transform: rotate(var(--sF)); transform-origin: 60px 92px; }
+  .fig .legB .shin { transform: rotate(var(--sB)); transform-origin: 60px 92px; }
+  .fig .skin { fill: var(--skin); }
+  .fig .shirt { fill: var(--shirt, var(--m1)); }
+  .fig .dark { fill: #1b1b1f; }
+  .fig .prop .dark { fill: #3c3c44; }
+  .fig .back-limb { filter: brightness(0.72); }
+  .fig .prop, .fig .kb, .fig .bag, .fig .ball, .fig .baton { display: none; }
+  .fig .ball { transform: translateY(var(--ball)); }
+  .ex-run { animation: run 0.6s linear infinite; }
+  @keyframes run {
+    0%, 100% { --tF: -32deg; --sF: 20deg; --tB: 28deg; --sB: 70deg; --aF: 38deg; --aB: -38deg; --lean: 10deg; --y: 0px; }
+    25% { --y: -4px; }
+    50% { --tF: 28deg; --sF: 70deg; --tB: -32deg; --sB: 20deg; --aF: -38deg; --aB: 38deg; --lean: 10deg; --y: 0px; }
+    75% { --y: -4px; }
+  }
+  .ex-ski { animation: ski 1.3s ease-in-out infinite; }
+  .ex-ski .p-ski { display: inline; }
+  @keyframes ski {
+    0%, 100% { --aF: -165deg; --aB: -160deg; --lean: 0deg; --y: 0px; --tF: -6deg; --tB: 6deg; --sF: 0deg; --sB: 0deg; }
+    50% { --aF: 10deg; --aB: 14deg; --lean: 38deg; --y: 8px; --tF: -30deg; --tB: -18deg; --sF: 40deg; --sB: 34deg; }
+  }
+  .ex-push { animation: push 0.7s linear infinite; }
+  .ex-push .p-sled { display: inline; }
+  @keyframes push {
+    0%, 100% { --lean: 52deg; --aF: -112deg; --aB: -106deg; --tF: -40deg; --sF: 30deg; --tB: 30deg; --sB: 40deg; --y: 6px; }
+    50% { --lean: 52deg; --aF: -112deg; --aB: -106deg; --tF: 26deg; --sF: 40deg; --tB: -40deg; --sB: 30deg; --y: 6px; }
+  }
+  .ex-pull { animation: pull 1.1s ease-in-out infinite; }
+  .ex-pull .p-rope { display: inline; }
+  @keyframes pull {
+    0%, 100% { --lean: -6deg; --aF: -78deg; --aB: -72deg; --tF: -22deg; --tB: 22deg; --sF: 14deg; --sB: 18deg; --y: 4px; }
+    50% { --lean: -26deg; --aF: -20deg; --aB: -14deg; --tF: -28deg; --tB: 26deg; --sF: 24deg; --sB: 26deg; --y: 8px; }
+  }
+  .ex-jump { animation: jump 1.2s ease-in-out infinite; }
+  @keyframes jump {
+    0%, 100% { --y: 0px; --x: -10px; --lean: 0deg; --aF: 0deg; --aB: 0deg; --tF: 0deg; --tB: 0deg; --sF: 0deg; --sB: 0deg; }
+    30% { --y: 16px; --x: -10px; --lean: 40deg; --aF: 30deg; --aB: 34deg; --tF: -70deg; --tB: -64deg; --sF: 110deg; --sB: 104deg; }
+    60% { --y: -18px; --x: 6px; --lean: 8deg; --aF: -160deg; --aB: -150deg; --tF: -20deg; --tB: 10deg; --sF: 30deg; --sB: 40deg; }
+    80% { --y: 12px; --x: 14px; --lean: 30deg; --aF: -40deg; --aB: -36deg; --tF: -60deg; --tB: -56deg; --sF: 90deg; --sB: 86deg; }
+  }
+  .ex-row { animation: row 1.4s ease-in-out infinite; }
+  .ex-row .p-rower { display: inline; }
+  @keyframes row {
+    0%, 100% { --y: 26px; --x: 8px; --lean: 28deg; --aF: -95deg; --aB: -90deg; --tF: -150deg; --tB: -146deg; --sF: 140deg; --sB: 136deg; }
+    45% { --y: 26px; --x: -14px; --lean: -22deg; --aF: -40deg; --aB: -36deg; --tF: -92deg; --tB: -90deg; --sF: 10deg; --sB: 8deg; }
+  }
+  .ex-carry { animation: carry 0.9s linear infinite; }
+  .ex-carry .kb { display: inline; }
+  @keyframes carry {
+    0%, 100% { --tF: -18deg; --sF: 10deg; --tB: 16deg; --sB: 30deg; --aF: 4deg; --aB: -4deg; --lean: 2deg; --y: 0px; }
+    50% { --tF: 16deg; --sF: 30deg; --tB: -18deg; --sB: 10deg; --aF: -4deg; --aB: 4deg; --lean: 2deg; --y: -2px; }
+  }
+  .ex-lunge { animation: lunge 1.3s ease-in-out infinite; }
+  .ex-lunge .bag { display: inline; }
+  @keyframes lunge {
+    0%, 100% { --y: 0px; --tF: -8deg; --sF: 0deg; --tB: 8deg; --sB: 0deg; --aF: -150deg; --aB: -150deg; --lean: 0deg; }
+    50% { --y: 16px; --tF: -72deg; --sF: 76deg; --tB: 34deg; --sB: 92deg; --aF: -150deg; --aB: -150deg; --lean: -4deg; }
+  }
+  .ex-wall { animation: wall 1.3s ease-in-out infinite; }
+  .ex-wall .ball, .ex-wall .p-wall { display: inline; }
+  @keyframes wall {
+    0%, 100% { --y: 16px; --lean: 24deg; --tF: -70deg; --tB: -66deg; --sF: 110deg; --sB: 106deg; --aF: -130deg; --aB: -126deg; --ball: 0px; }
+    45% { --y: -2px; --lean: 0deg; --tF: 0deg; --tB: 0deg; --sF: 0deg; --sB: 0deg; --aF: -178deg; --aB: -174deg; --ball: -34px; }
+    60% { --ball: -40px; }
+  }
+
+  /* ===== HYROX 正式賽制（E 接力賽道） ===== */
+  .view-hyrox { color: var(--hy-text); padding-bottom: 40px; }
+  .hy-hero { position: relative; z-index: 2; min-height: 92vh; display: grid; align-content: center; justify-items: center; text-align: center; padding: 130px 0 0; }
+  .hy-tag { font-family: "Oswald", sans-serif; letter-spacing: 0.4em; color: var(--hy-road); font-size: 0.95rem; }
+  .hy-hero h1 { margin: 10px 0 0; font-family: "Oswald", sans-serif; font-size: clamp(3.4rem, 12vw, 8rem); line-height: 0.95; font-weight: 700; letter-spacing: 0.04em; }
+  .hy-sub { display: inline-block; margin-top: 12px; background: var(--hy-done); color: #0c0c0d; padding: 6px 18px; font-weight: 900; font-size: clamp(1.1rem, 3.2vw, 1.7rem); }
+  .hy-hero p { max-width: 36rem; margin: 22px auto; line-height: 1.8; color: var(--hy-muted); }
+  .hy-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(640px, 100%); border-top: 1px solid #333; border-bottom: 1px solid #333; }
+  .hy-stats div { padding: 14px 8px; border-right: 1px solid #333; }
+  .hy-stats div:last-child { border-right: 0; }
+  .hy-stats b { display: block; font-family: "Oswald", sans-serif; font-size: 2.2rem; color: var(--hy-road); line-height: 1; }
+  .hy-stats span { font-size: 0.8rem; color: var(--hy-muted); }
+  .team { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 22px; }
+  .team span { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #333; padding: 6px 12px 6px 8px; font-size: 0.85rem; }
+  .team i { width: 14px; height: 14px; border-radius: 50%; }
+  .team-note { margin: 10px 0 0; font-size: 0.8rem; color: var(--hy-muted); }
+  .start-flag { margin-top: 34px; font-family: "Oswald", sans-serif; letter-spacing: 0.3em; color: var(--hy-road); }
+
+  .course { position: relative; }
+  .road-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 0; }
+  .road-edge { fill: none; stroke: var(--hy-edge); stroke-width: 64; stroke-linecap: round; }
+  .road-base { fill: none; stroke: var(--hy-road); stroke-width: 54; stroke-linecap: round; }
+  .road-lane { fill: none; stroke: rgba(12, 12, 13, 0.35); stroke-width: 2; stroke-dasharray: 14 16; }
+  .road-done { fill: none; stroke: var(--hy-done); stroke-width: 10; stroke-linecap: round; opacity: 0.9; }
+  .chaser { position: absolute; left: 0; top: 0; width: 64px; height: 64px; margin: -54px 0 0 -32px; z-index: 3; pointer-events: none; }
+  .chaser .fig { width: 100%; height: 100%; }
+  .chaser.flip .fig { transform: scaleX(-1); }
+
+  .station { position: relative; z-index: 2; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 20px; min-height: 360px; padding: 30px 0; }
+  .station .fig-wrap { position: relative; justify-self: center; width: 170px; height: 170px; }
+  .station .fig { width: 100%; height: 100%; }
+  .station.right .fig-wrap { order: 2; }
+  .st-info { max-width: 400px; position: relative; z-index: 4; background: rgba(12, 12, 13, 0.9); padding: 14px 18px; border-left: 3px solid var(--shirt); }
+  .station.right .st-info { justify-self: end; border-left: 0; border-right: 3px solid var(--shirt); }
+  .st-no { font-family: "Oswald", sans-serif; font-size: clamp(3.2rem, 8vw, 5rem); line-height: 0.9; color: #3a3a3f; transition: color 0.4s ease; }
+  .station.is-done .st-no { color: var(--hy-done); }
+  .st-line { font-family: "Oswald", sans-serif; font-size: 1.05rem; letter-spacing: 0.06em; margin: 6px 0 2px; }
+  .st-line em { font-style: normal; color: var(--hy-road); }
+  .st-name { font-size: 1.2rem; font-weight: 900; margin: 6px 0 4px; }
+  .st-desc { color: var(--hy-muted); font-size: 0.9rem; line-height: 1.6; margin: 0; }
+  .st-spec { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: #2c2c30; border: 1px solid #2c2c30; margin-top: 10px; text-align: center; }
+  .st-spec div { background: #141416; padding: 6px 4px; }
+  .st-spec span { display: block; font-size: 0.68rem; color: var(--hy-muted); }
+  .st-spec b { font-family: "Oswald", sans-serif; font-weight: 500; font-size: 0.85rem; }
+  .st-same { margin-top: 10px; font-size: 0.8rem; color: var(--hy-done); }
+  .st-leg { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 0.75rem; color: var(--hy-muted); border: 1px solid #333; padding: 3px 10px; }
+  .st-leg i { width: 10px; height: 10px; border-radius: 50%; background: var(--shirt); }
+  .handoff { position: relative; z-index: 2; text-align: center; padding: 6px 0; }
+  .handoff span { display: inline-block; background: var(--hy-bg); border: 1px dashed var(--hy-done); color: var(--hy-done); font-family: "Oswald", sans-serif; letter-spacing: 0.12em; padding: 6px 16px; font-size: 0.85rem; }
+
+  .pit { position: relative; z-index: 2; padding: 40px 0; }
+  .hy-panel { background: #141416; border: 1px solid #2c2c30; padding: clamp(20px, 3.4vw, 36px); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5); }
+  .hy-panel-tag { font-family: "Oswald", sans-serif; letter-spacing: 0.25em; color: var(--hy-road); font-size: 0.85rem; }
+  .hy-panel h2 { margin: 4px 0 6px; }
+  .hy-lead { margin: 0 0 18px; color: var(--hy-muted); line-height: 1.8; }
+  .hy-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .hy-cards div { border: 1px solid #2c2c30; padding: 14px; }
+  .hy-cards b { display: block; font-family: "Oswald", sans-serif; font-size: 1.3rem; color: var(--hy-road); letter-spacing: 0.04em; }
+  .hy-cards strong { display: block; margin: 2px 0 6px; }
+  .hy-cards p { margin: 0; color: var(--hy-muted); font-size: 0.88rem; line-height: 1.6; }
+  .finish { position: relative; z-index: 2; text-align: center; padding: 30px 0 40px; }
+  .finish-flag { display: inline-block; width: 220px; height: 34px; background: repeating-conic-gradient(#f2ede2 0 25%, #0c0c0d 0 50%) 0 0 / 34px 34px; border: 2px solid var(--hy-road); }
+  .finish h2 { font-family: "Oswald", sans-serif; letter-spacing: 0.2em; margin: 14px 0 4px; font-size: 2rem; }
+  .hy-btn { margin-top: 18px; background: var(--hy-road); color: #141416; border: 0; padding: 12px 22px; font-weight: 900; }
+  .hy-fine { margin: 14px 0 0; font-size: 0.78rem; color: var(--hy-muted); }
+
+  .hud { position: fixed; right: 14px; bottom: 14px; z-index: 10; background: rgba(20, 20, 22, 0.92); border: 1px solid #333; padding: 10px 14px; font-size: 0.8rem; min-width: 150px; color: var(--hy-text); }
+  .hud b { font-family: "Oswald", sans-serif; font-size: 1.3rem; color: var(--hy-road); display: block; }
+  .hud .legs { display: flex; gap: 4px; margin-top: 6px; }
+  .hud .legs i { flex: 1; height: 5px; background: #333; }
+  .hud .legs i.on { background: var(--c); }
+  .hud .flash { color: var(--hy-done); font-weight: 700; min-height: 1.2em; }
+  body:not([data-tab="hyrox"]) .hud { display: none; }
+
+  footer { position: relative; z-index: 1; text-align: center; padding: 0 16px 40px; font-size: 0.8rem; opacity: 0.7; }
+
+
+
+  /* ===== 賽事倒數：跑馬燈 ===== */
+  .race-ticker { position: fixed; top: 0; left: 0; right: 0; z-index: 28; height: 32px; padding-top: env(safe-area-inset-top); box-sizing: content-box;
+    display: flex; align-items: center; overflow: hidden; background: #3b2a2a; color: #fbe3c6; font-size: 0.82rem; }
+  .rt-track { display: flex; width: max-content; animation: rt-scroll 48s linear infinite; }
+  .race-ticker:hover .rt-track { animation-play-state: paused; }
+  .rt-group { display: flex; align-items: center; flex: none; }
+  .rt-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .rt-item b { color: #ffd98a; font-weight: 700; }
+  .rt-item.is-main { color: #ffd98a; font-weight: 900; }
+  .rt-item.is-main b { background: #ffd98a; color: #3b2a2a; padding: 1px 8px; border-radius: 999px; }
+  .rt-item.is-done { opacity: 0.5; }
+  .rt-sep { padding: 0 12px; opacity: 0.45; }
+  @keyframes rt-scroll { to { transform: translateX(-50%); } }
+  body[data-tab="hyrox"] .race-ticker { background: #111; color: #f2ede2; border-bottom: 1px solid #2c2c30; }
+  body[data-tab="hyrox"] .rt-item b, body[data-tab="hyrox"] .rt-item.is-main { color: #d9b23f; }
+  body[data-tab="hyrox"] .rt-item.is-main b { background: #d9b23f; color: #111; }
+
+  /* ===== 賽事倒數：太陽就是倒數 ===== */
+  .sun { display: grid; place-items: center; }
+  .sun-count { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; color: #b9513a;
+    opacity: var(--sun-text, 0); }
+  .sc-tag { font-weight: 900; letter-spacing: 0.25em; font-size: clamp(11px, 2.6vw, 18px); color: #3b2a2a; }
+  .sc-days { display: flex; align-items: baseline; gap: 2px; line-height: 1; }
+  .sc-days b { font-family: "DM Serif Display", serif; font-weight: 400; font-size: clamp(46px, 13vw, 120px); color: #e8774f; }
+  .sc-days small { font-size: clamp(13px, 2.8vw, 22px); font-weight: 700; color: #3b2a2a; }
+  .sun-count.is-final .sc-days small { display: none; }
+  /* 桌面版太陽比較大，置中會被 101 穿過；移到左側避開，像斜陽 */
+  @media (min-width: 721px) {
+    .sun { left: 30%; }
+    .sc-days b { font-size: clamp(56px, 7vw, 96px); }
+  }
+  /* 標題和賽事區之間留一段空檔，讓整顆「太陽倒數」完整露出 */
+  #races { padding-top: calc(30vh + min(46vw, 420px)); }
+  @media (max-width: 720px) { #races { padding-top: calc(28vh + 46vw); } }
+  .sc-hms { margin-top: 2px; font-size: clamp(11.5px, 2.7vw, 17px); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; color: #5a3a30; }
+
+  /* ===== 賽事倒數：卡片牆 ===== */
+  .race-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .race-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 10px; padding: 14px 16px 12px; border-radius: 18px;
+    background: color-mix(in srgb, var(--card) 75%, transparent); border: 1.5px solid color-mix(in srgb, var(--ink) 8%, transparent); }
+  .race-card.is-next { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+  .race-card.is-done { opacity: 0.55; }
+  .rc-main { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+  .rc-main b { font-size: 1.05rem; }
+  .rc-main small { flex-basis: 100%; opacity: 0.7; font-size: 0.8rem; }
+  .rc-tag { font-style: normal; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: #fff; }
+  .rc-tag.is-done { background: color-mix(in srgb, var(--ink) 15%, transparent); color: var(--ink); }
+  .rc-tag.is-today { background: #d0453a; }
+  .rc-days { text-align: right; white-space: nowrap; }
+  .rc-days b { font-family: "DM Serif Display", serif; font-weight: 400; font-size: 2rem; line-height: 1; color: var(--accent); }
+  .rc-days small { margin-left: 2px; opacity: 0.7; }
+  .rc-bar { grid-column: 1 / -1; height: 6px; border-radius: 99px; overflow: hidden; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+  .rc-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #f6b26b, var(--accent)); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rt-track { animation: none; }
+    .race-ticker { overflow-x: auto; }
+  }
+
+  .race-empty { grid-column: 1 / -1; padding: 16px; border-radius: 18px; text-align: center; font-weight: 700; background: color-mix(in srgb, var(--card) 75%, transparent); }
+  .race-done { margin-top: 12px; border-radius: 16px; background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  .race-done summary { cursor: pointer; padding: 12px 16px; font-weight: 700; font-size: 0.9rem; list-style: none; }
+  .race-done summary::-webkit-details-marker { display: none; }
+  .race-done summary::after { content: "展開"; float: right; font-weight: 400; opacity: 0.6; font-size: 0.82rem; }
+  .race-done[open] summary::after { content: "收合"; }
+  .race-done ul { list-style: none; margin: 0; padding: 0 16px 12px; display: grid; gap: 6px; }
+  .race-done li { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); font-size: 0.9rem; opacity: 0.75; }
+  .race-done li small { opacity: 0.7; }
+  .race-done li span { margin-left: auto; font-weight: 700; color: var(--accent); }
+
+  /* ===== 個人目標 ===== */
+  .me-goal { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .me-goal-icon { font-size: 1.5rem; }
+  .me-goal-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .me-goal-text small { opacity: 0.7; font-size: 0.78rem; }
+  .me-goal button { flex: none; border: 0; border-radius: 999px; padding: 8px 14px; font-weight: 700; background: var(--accent); color: #fff; }
+  .goal-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .goal-badge.is-done { background: var(--accent); color: #fff; }
+  .me-goal.is-pending { background: color-mix(in srgb, var(--accent) 22%, transparent); outline: 2px solid var(--accent); }
+  .gd-finish { display: grid; gap: 8px; padding: 14px; border-radius: 14px; background: rgba(232, 119, 79, 0.12); }
+  .gd-finish small { font-size: 0.82rem; opacity: 0.8; line-height: 1.6; }
+  .goal-reveal { margin-top: 24px; }
+  .goal-reveal h3 { margin: 0 0 10px; font-size: 1.1rem; }
+  .goal-reveal ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .goal-reveal li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--card) 70%, transparent); }
+  .goal-reveal li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .goal-reveal li span:not(.avatar):not(.goal-badge) { font-size: 0.88rem; opacity: 0.85; word-break: break-word; }
+  .goal-reveal .goal-badge { flex: none; }
+  .goal-dialog { width: min(440px, calc(100% - 24px)); max-height: calc(100dvh - 32px); border: 0; border-radius: 22px; padding: 0; background: #fff8f0; color: #3b2a2a; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35); }
+  .goal-dialog::backdrop { background: rgba(30, 36, 66, 0.55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+  .gd { display: grid; gap: 12px; padding: 22px; }
+  .gd h3 { margin: 0; font-size: 1.2rem; font-weight: 900; }
+  .gd-desc { margin: 0; line-height: 1.7; font-size: 0.92rem; }
+  .gd-rules { margin: 0; padding: 10px 14px 10px 30px; border-radius: 12px; background: rgba(232, 119, 79, 0.1); font-size: 0.85rem; line-height: 1.7; }
+  .gd label { display: grid; gap: 6px; font-size: 0.85rem; font-weight: 700; }
+  .gd textarea, .gd input[type="password"] { width: 100%; padding: 10px 12px; font: inherit; font-size: 16px; font-weight: 400; color: inherit; background: #fff; border: 1.5px solid rgba(59, 42, 42, 0.2); border-radius: 12px; resize: vertical; }
+  .gd textarea:focus, .gd input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .gd-check { display: flex !important; align-items: center; gap: 8px; font-weight: 700; }
+  .gd-check input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .gd-error { margin: 0; color: #d0453a; font-weight: 700; font-size: 0.88rem; }
+  .gd-goal { margin: 0; padding: 16px; border-radius: 14px; background: #fff; font-size: 1.2rem; font-weight: 900; line-height: 1.5; word-break: break-word; border: 2px dashed var(--accent); }
+  .gd-actions { display: flex; gap: 10px; margin-top: 4px; }
+  .gd-actions button { flex: 1; padding: 12px; border-radius: 999px; font-weight: 700; border: 1.5px solid rgba(59, 42, 42, 0.25); background: transparent; color: inherit; }
+  .gd-actions .is-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .gd-actions button:disabled { opacity: 0.6; }
+
+  /* ===== 手機版（主要操作介面） ===== */
+  .tab-ico { margin-right: 4px; }
+  @media (max-width: 720px) {
+    input, select, textarea { font-size: 16px; }
+    .tabs { top: auto; bottom: 0; left: 0; right: 0; translate: none; max-width: none; width: 100%; justify-content: space-around; gap: 0;
+      border-radius: 20px 20px 0 0; border-bottom: 0; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+    .tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 0.7rem; border-radius: 14px; }
+    .tab-ico { margin: 0; font-size: 1.25rem; line-height: 1; }
+    main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+    /* 跑者原本在畫面最底下，會被底部導覽列蓋住；往上移到道路遠一點的地方 */
+    .runners { bottom: calc(70px + env(safe-area-inset-bottom)); gap: 10px; }
+    .runner { width: 26px; }
+    footer { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+    .live-banner { bottom: calc(84px + env(safe-area-inset-bottom)); }
+    .hud { bottom: calc(80px + env(safe-area-inset-bottom)); }
+
+    .wrap { width: calc(100% - 24px); }
+    section { padding-top: 12vh; }
+    .view-c { padding-bottom: 18vh; }
+    .page-top { padding-top: calc(52px + env(safe-area-inset-top)); }
+    .race-ticker { font-size: 0.78rem; }
+    .race-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .race-card { padding: 12px; gap: 6px 8px; }
+    .rc-main b { font-size: 0.95rem; }
+    .rc-days b { font-size: 1.6rem; }
+    .panel { padding: 18px 16px; border-radius: 20px; }
+    .time .serif { font-size: 1.9rem; }
+    .lead { font-size: 0.9rem; margin-bottom: 16px; }
+    .hero { padding-top: 12vh; min-height: 92vh; }
+    .hero p { font-size: 0.92rem; }
+    .roster { gap: 6px; }
+    .player { font-size: 0.82rem; }
+
+    /* 大家打卡：表格改成每人一張卡 */
+    .checkin-table { min-width: 0; }
+    .checkin-table thead { display: none; }
+    .checkin-table tbody tr { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); row-gap: 10px; padding: 12px 4px; border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); }
+    .checkin-table tbody td { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0; border: 0; white-space: normal; }
+    .checkin-table td.col-name { position: static; grid-column: 1 / 5; grid-row: 1; flex-direction: row; justify-content: flex-start; background: none; }
+    .checkin-table td.score-cell { grid-row: 1; display: grid; grid-template-columns: auto auto; justify-content: center; align-items: baseline; gap: 0 1px; }
+    .checkin-table td.score-cell b { font-size: 1.35rem; line-height: 1; }
+    .checkin-table td[data-label]:not(.score-cell)::after { content: attr(data-label); font-size: 0.62rem; opacity: 0.75; text-align: center; line-height: 1.2; }
+    .checkin-table td.score-cell::before { content: attr(data-label); grid-column: 1 / -1; text-align: center; font-size: 0.62rem; opacity: 0.7; }
+    .checkin-table .cap { display: none; }
+    .checkin-table .cell { width: 34px; height: 34px; }
+    .day-chip { min-width: 50px; padding: 6px 8px; }
+
+    /* 排行 */
+    .rank-item { grid-template-columns: 1.8rem 30px minmax(0, 1fr) auto; padding: 10px 12px; }
+    .rank-item .bar { grid-column: 3 / 5; grid-row: 2; }
+    .rank-no { font-size: 1.3rem; }
+    .rank-score b { font-size: 1.4rem; }
+
+    /* 個人打卡 */
+    .me-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .me-side, .me-main { min-width: 0; }
+    .me-players { flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .me-chip { font-size: 0.85rem; padding: 3px 10px 3px 3px; }
+    .me-chip .avatar { width: 26px; height: 26px; font-size: 0.78rem; }
+    .me-date { display: grid; grid-template-columns: auto 1fr auto auto; }
+    .me-date input { min-width: 0; width: 100%; }
+    .me-tasks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .me-task { padding: 12px 34px 12px 12px; column-gap: 8px; }
+    .me-task b { font-size: 0.95rem; }
+    .me-task-no { font-size: 1.15rem; }
+    .me-check { right: 10px; width: 20px; height: 20px; }
+    .me-foot { position: sticky; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 5; margin-top: 14px; padding: 10px 12px;
+      background: color-mix(in srgb, var(--card) 92%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); }
+    .me-save { padding: 12px 18px; }
+    .me-history h3 { font-size: 1rem; }
+
+    /* 總分 */
+    .podium { gap: 6px; }
+    .podium-item { width: 30%; }
+    .rank-1 .podium-block { height: 100px; }
+    .rank-2 .podium-block { height: 74px; }
+    .rank-3 .podium-block { height: 54px; }
+    .total-table td.col-name, .total-table th.col-name { position: sticky; left: 0; z-index: 1; background: var(--card); }
+    .total-table th, .total-table td { padding: 10px 6px; }
+
+    /* 抽卡 */
+    .draw-meta strong { font-size: 2.4rem; }
+    .draw-who { width: 100%; justify-content: center; }
+    .draw-who select { flex: 1; max-width: 220px; }
+    .btn-draw { width: 100%; max-width: 320px; }
+
+    /* HYROX 賽制 */
+    .hy-hero { padding-top: calc(60px + env(safe-area-inset-top)); }
+    .st-spec span { font-size: 0.62rem; }
+    .st-spec b { font-size: 0.78rem; }
+  }
+
+  @media (max-width: 720px) {
+    .station { grid-template-columns: 1fr; min-height: 0; gap: 6px; padding: 26px 0; }
+    .station.right .fig-wrap { order: 0; justify-self: end; }
+    .station .fig-wrap { width: 130px; height: 130px; justify-self: start; }
+    .station.right .st-info { justify-self: end; }
+    .road-edge { stroke-width: 44; }
+    .road-base { stroke-width: 36; }
+    .hy-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hy-stats div:nth-child(2) { border-right: 0; }
+    .hud { padding: 8px 10px; font-size: 0.7rem; min-width: 0; }
+    .hud b { font-size: 1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fig, .fig * { animation: none !important; }
+  }
+</style>
+</head>
+<body data-tab="home">
+  <!-- 小人模板 -->
+  <template id="fig-tpl">
+    <svg class="fig" viewBox="0 0 120 130" aria-hidden="true">
+      <g class="p-ski prop"><rect x="92" y="10" width="6" height="110" class="dark" /><rect x="84" y="104" width="22" height="16" rx="3" class="dark" /><line x1="95" y1="14" x2="72" y2="40" stroke="#555" stroke-width="1.5" /></g>
+      <g class="p-sled prop"><rect x="92" y="96" width="30" height="8" class="dark" /><rect x="96" y="56" width="5" height="42" class="dark" /><rect x="112" y="56" width="5" height="42" class="dark" /><ellipse cx="107" cy="90" rx="10" ry="6" fill="#2c2c30" /></g>
+      <g class="p-rope prop"><line x1="74" y1="62" x2="128" y2="112" stroke="#a88a4a" stroke-width="2" /><rect x="118" y="108" width="20" height="8" class="dark" /></g>
+      <g class="p-rower prop"><rect x="20" y="108" width="100" height="5" class="dark" /><circle cx="108" cy="98" r="14" class="dark" /><rect x="38" y="96" width="22" height="6" rx="2" fill="#2c2c30" /></g>
+      <g class="p-wall prop"><rect x="104" y="0" width="4" height="120" fill="#2c2c30" /><circle cx="100" cy="10" r="4" fill="#d9b23f" /></g>
+      <g class="whole">
+        <g class="legB back-limb"><rect x="55" y="70" width="10" height="24" rx="5" class="skin" /><g class="shin"><rect x="55.5" y="90" width="9" height="24" rx="4.5" class="skin" /><rect x="54" y="110" width="15" height="7" rx="3" class="dark" /></g></g>
+        <g class="legF"><rect x="55" y="70" width="10" height="24" rx="5" class="skin" /><g class="shin"><rect x="55.5" y="90" width="9" height="24" rx="4.5" class="skin" /><rect x="54" y="110" width="15" height="7" rx="3" class="dark" /></g></g>
+        <g class="upper">
+          <g class="armB back-limb"><rect x="56" y="42" width="8" height="30" rx="4" class="skin" /><g class="kb"><circle cx="60" cy="78" r="7" fill="#55555e" /><rect x="57" y="68" width="6" height="6" fill="none" stroke="#1b1b1f" stroke-width="2" /></g></g>
+          <rect x="50" y="38" width="20" height="36" rx="8" class="shirt" />
+          <rect x="50" y="62" width="20" height="14" rx="5" class="dark" />
+          <circle cx="60" cy="28" r="9" class="skin" />
+          <path d="M51 27 a9 9 0 0 1 18 -1 l-2 -2 q-8 -6 -16 3z" class="dark" />
+          <g class="bag"><rect x="38" y="30" width="44" height="12" rx="6" fill="#7a6a4a" /></g>
+          <g class="ball"><circle cx="60" cy="-6" r="9" fill="#2a2a2e" stroke="#d9b23f" stroke-width="1.5" /></g>
+          <g class="armF"><rect x="56" y="42" width="8" height="30" rx="4" class="skin" /><g class="kb"><circle cx="60" cy="78" r="7" fill="#55555e" /><rect x="57" y="68" width="6" height="6" fill="none" stroke="#1b1b1f" stroke-width="2" /></g><rect class="baton" x="52" y="68" width="16" height="5" rx="2" fill="#ffd98a" /></g>
+        </g>
+      </g>
+    </svg>
+  </template>
+
+  <!-- 載入畫面 -->
+  <div class="loader is-gone" id="loader" role="status" aria-label="HYROX 賽制載入中" title="點一下跳過">
+    <div>
+      <div class="loader-stage">
+        <div class="loader-track"></div>
+        <div class="fig-slot runA" data-ex="run"></div>
+        <div class="fig-slot runB" data-ex="run"></div>
+      </div>
+      <div class="loader-text"><b>LOADING</b><span>接力交棒中，選手就位…</span></div>
+      <div class="loader-bar"><i></i></div>
+    </div>
+  </div>
+
+  <!-- 背景 -->
+  <div class="scene" aria-hidden="true">
+    <div class="stars" id="stars"></div>
+    <div class="moon"></div>
+    <div class="sun">
+      <div class="sun-count" id="sun-count">
+        <span class="sc-tag" id="sun-tag">HYROX 倒數</span>
+        <span class="sc-days"><b id="sun-days">--</b><small>天</small></span>
+        <span class="sc-hms" id="sun-hms">--</span>
+      </div>
+    </div>
+    <div class="clouds">
+      <span class="cloud" style="left:8vw;top:22vh;width:180px"></span>
+      <span class="cloud" style="left:14vw;top:25vh;width:110px"></span>
+      <span class="cloud" style="right:10vw;top:16vh;width:220px"></span>
+      <span class="cloud" style="right:18vw;top:19vh;width:120px"></span>
+      <span class="cloud" style="left:36vw;top:40vh;width:160px"></span>
+    </div>
+    <svg class="birds" width="140" height="50" viewBox="0 0 140 50"><g fill="none" stroke="#5a4a55" stroke-width="2" stroke-linecap="round"><path d="M10 20 q6 -6 12 0 q6 -6 12 0" /><path d="M60 8 q5 -5 10 0 q5 -5 10 0" /><path d="M100 30 q4 -4 8 0 q4 -4 8 0" /></g></svg>
+    <svg class="skyline" viewBox="0 0 1440 600" preserveAspectRatio="xMidYMax slice">
+      <g id="far"></g>
+      <g id="mid"></g>
+      <g id="near"></g>
+      <polygon class="road" points="560,600 880,600 760,470 680,470" />
+      <rect class="near" x="0" y="560" width="1440" height="40" />
+      <polygon class="road" points="420,600 1020,600 770,470 670,470" />
+      <g id="dashes"></g>
+      <g id="lamps"></g>
+    </svg>
+    <div class="runners" id="runners"></div>
+  </div>
+  <div class="hy-scene" aria-hidden="true"></div>
+
+  <div class="race-ticker" id="race-ticker" role="marquee"></div>
+
+  <nav class="tabs" role="tablist" aria-label="頁面">
+    <button role="tab" data-tab="home" aria-selected="true"><span class="tab-ico" aria-hidden="true">🏠</span><span>主畫面</span></button>
+    <button role="tab" data-tab="me" aria-selected="false"><span class="tab-ico" aria-hidden="true">👤</span><span>個人打卡</span></button>
+    <button role="tab" data-tab="board" aria-selected="false"><span class="tab-ico" aria-hidden="true">📈</span><span>總分排行</span></button>
+    <button role="tab" data-tab="hyrox" aria-selected="false"><span class="tab-ico" aria-hidden="true">🏁</span><span>HYROX 賽制</span></button>
+  </nav>
+
+  <main>
+    <!-- ===== 主畫面（方案 C，內容不變） ===== -->
+    <div class="view view-c" data-view="home">
+      <div class="wrap">
+        <header class="hero">
+          <span class="hero-small">06:00 · 天剛亮，先出門跑一段</span>
+          <span class="hero-date">2026/11/23 – 2027/1/23・終點是 HYROX 團練日</span>
+          <h1>第七屆<span class="serif">HYROX Outpost</span>前哨打卡站</h1>
+          <p>從清晨跑到午夜。白天打卡、傍晚看排行，到了深夜 12 點，第一個進站的人幫大家抽出明天的 HYROX 挑戰。</p>
+          <div class="roster" id="roster"></div>
+        </header>
+
+        <section id="races">
+          <div class="panel">
+            <div class="time"><span class="serif">09:00</span><span>RACE CALENDAR</span></div>
+            <h2>賽事倒數</h2>
+            <p class="lead">大家報名的比賽，依日期排好了。外框亮起來的是下一場，比完會自動收進下方的「已完賽」。</p>
+            <ul class="race-list" id="race-list"></ul>
+            <details class="race-done" id="race-done" hidden><summary></summary><ul></ul></details>
+          </div>
+        </section>
+
+        <section id="checkin">
+          <div class="panel">
+            <div class="time"><span class="serif">12:00</span><span>DAILY CHECK-IN</span></div>
+            <h2>今天，大家完成了什麼</h2>
+            <p class="lead">一天最多 5 分，超過會標示 MAX。點選手名字可以到個人頁打卡。</p>
+            <div class="day-chips" id="day-chips"></div>
+            <div class="table-wrap"><table class="checkin-table" id="today-table"></table></div>
+          </div>
+        </section>
+
+        <section id="rank">
+          <div class="panel">
+            <div class="time"><span class="serif">18:00</span><span>WEEKLY BOARD</span></div>
+            <h2>夕陽下的本週排行</h2>
+            <p class="lead">每週上限 15 分，滿了就封頂，剩下的天數拿來恢復也可以。</p>
+            <ol class="ranking" id="ranking"></ol>
+          </div>
+        </section>
+
+        <section id="draw">
+          <div class="panel">
+            <div class="time"><span class="serif">00:00</span><span>MIDNIGHT DRAW</span></div>
+            <h2>午夜抽卡</h2>
+            <p class="lead">月亮出來的時候開放。第一個進站的選手洗牌抽卡，全員當天一起完成。</p>
+            <div id="draw-area"></div>
+          </div>
+        </section>
+
+        <section id="rules">
+          <div class="panel">
+            <div class="time"><span class="serif">Rules</span><span>每項 +1・長距離 +3</span></div>
+            <h2>賽制說明</h2>
+            <ol class="timeline">
+              <li><span class="serif">01</span><div><h3>重訓</h3><p>上肢或下肢，完成一次訓練。</p></div></li>
+              <li><span class="serif">02</span><div><h3>長距離</h3><p>時長自訂，每週只算 1 次，完成 +3 分。</p></div></li>
+              <li><span class="serif">03</span><div><h3>輕鬆跑</h3><p>時長自訂，每天都可以打卡，+1 分。<span class="rule-note">補充：沒有跑步的日子，也可以用「運動 1 小時」代替（任何運動都算）。</span></p></div></li>
+              <li><span class="serif">04</span><div><h3>喝水</h3><p>當日 2500 ml。</p></div></li>
+              <li><span class="serif">05</span><div><h3>健康飲食</h3><p>無糖、少油炸、蛋白質充足。</p></div></li>
+              <li><span class="serif">06</span><div><h3>HYROX 挑戰</h3><p>午夜抽卡公布，附居家無器材平替。想知道真正的 HYROX 比什麼？<button class="link-btn" data-goto="hyrox">看正式賽制</button></p></div></li>
+              <li><span class="serif">+3</span><div><h3>特別加分：個人目標</h3><p>第一次打卡時設定自己的目標（例如半馬跑進 2:20），送出後不能改，內容用個人密碼加密。結賽時達成，最終統計再 +3 分。</p></div></li>
+            </ol>
+            <div class="caps"><span>每日上限 5 分</span><span>每週上限 15 分</span></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ===== 個人打卡 ===== -->
+    <div class="view view-c" data-view="me" hidden>
+      <div class="wrap page-top">
+        <div class="panel">
+          <div class="time"><span class="serif">Me</span><span>PERSONAL CHECK-IN</span></div>
+          <h2>個人打卡</h2>
+          <p class="lead">選自己的名字，勾選完成的項目後按儲存，資料會存到雲端。可以回頭補登活動期間的日期，也可以修改名字。</p>
+          <div id="person-area"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 總分排行 ===== -->
+    <div class="view view-c" data-view="board" hidden>
+      <div class="wrap page-top">
+        <div class="panel">
+          <div class="time"><span class="serif">Total</span><span>OVERALL STANDINGS</span></div>
+          <h2>總分排行</h2>
+          <p class="lead">總分＝每週積分加總，每週最多採計 15 分。本週還在進行中，分數會隨打卡更新。</p>
+          <div id="total-board"></div>
+          <ul class="note-list">
+            <li>同分時，先比本週積分。</li>
+            <li>個人目標在 1/23 結賽當天，由本人在個人頁輸入密碼確認是否達成；確認後目標會公開在下方，達成者總分再 +3（不受每週 15 分上限限制）。</li>
+            <li>活動共 9 週，最後一週是 1/18–1/23，終點那天剛好是 HYROX 團練。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== HYROX 正式賽制 ===== -->
+    <div class="view view-hyrox" data-view="hyrox" hidden>
+      <header class="hy-hero wrap">
+        <span class="hy-tag">OFFICIAL FORMAT</span>
+        <h1>HYROX RACE</h1>
+        <span class="hy-sub">真正的 HYROX 比什麼？</span>
+        <p>HYROX 是全球統一流程的健身競速賽：跑 1 公里、做 1 個訓練站，重複 8 次。每一場的站點、順序和距離都一樣，所以全世界的成績可以直接比較。</p>
+        <div class="hy-stats">
+          <div><b>8 km</b><span>總跑步距離</span></div>
+          <div><b>8</b><span>個訓練站</span></div>
+          <div><b>4</b><span>種組別</span></div>
+          <div><b>1</b><span>套全球流程</span></div>
+        </div>
+        <div class="team">
+          <span><i style="background:var(--m1)"></i>第 1 棒｜01–02 站</span>
+          <span><i style="background:var(--m2)"></i>第 2 棒｜03–04 站</span>
+          <span><i style="background:var(--m3)"></i>第 3 棒｜05–06 站</span>
+          <span><i style="background:var(--m4)"></i>第 4 棒｜07–08 站</span>
+        </div>
+        <p class="team-note">以下用四人接力組（Relay）示範，往下捲跟著跑者一站一站看。</p>
+        <div class="start-flag" data-anchor="start">▼ START</div>
+      </header>
+
+      <div class="course wrap" id="hy-course">
+        <svg class="road-svg" id="road-svg"><path class="road-edge" /><path class="road-base" /><path class="road-lane" /><path class="road-done" /></svg>
+        <div class="chaser" id="chaser"><div class="fig-slot" data-ex="run"></div></div>
+        <div id="hy-body"></div>
+      </div>
+    </div>
+  </main>
+
+  <div class="hud" id="hud" aria-live="polite">
+    <span>目前位置</span>
+    <b id="hud-pos">起跑線</b>
+    <div class="flash" id="hud-flash"></div>
+    <div class="legs"><i style="--c:var(--m1)"></i><i style="--c:var(--m2)"></i><i style="--c:var(--m3)"></i><i style="--c:var(--m4)"></i></div>
+  </div>
+
+  <footer>第七屆 HYROX 前哨打卡站・2026/11/23 – 2027/1/23</footer>
+
+  <script>
+    // ===== C：天色色票 =====
+    window.SCENE_STOPS = [
+      { "--sky1": "#f9d9c2", "--sky2": "#fff4e6", "--sun": "#fff8ee", "--far": "#f3c3a4", "--mid": "#eba483", "--near": "#6b5560", "--road": "#5a4a55" },
+      { "--sky1": "#f6b98a", "--sky2": "#fce2c2", "--sun": "#fff0d6", "--far": "#efa77d", "--mid": "#de8659", "--near": "#5c4553", "--road": "#4e3f4b" },
+      { "--sky1": "#e9785a", "--sky2": "#f7b47a", "--sun": "#ffe1b0", "--far": "#d9694a", "--mid": "#b9513a", "--near": "#4a3343", "--road": "#3e2e3b" },
+      { "--sky1": "#141a33", "--sky2": "#34396a", "--sun": "#3a3f6b", "--far": "#262d52", "--mid": "#1f2546", "--near": "#12162b", "--road": "#0f1224" },
+      { "--sky1": "#0f1428", "--sky2": "#2a2f5c", "--sun": "#2a2f5c", "--far": "#222848", "--mid": "#1a1f3c", "--near": "#0e1122", "--road": "#0b0d1c" },
+    ];
+    window.onSceneProgress = (p) => {
+      const night = Math.min(1, Math.max(0, (p - 0.55) / 0.2));
+      document.documentElement.style.setProperty("--night", night.toFixed(3));
+      document.body.classList.toggle("is-night", night > 0.5);
+      if (document.body.dataset.tab === "hyrox") updateCourse();
+      updateSunText();
+    };
+
+    // 太陽裡的倒數：一開始被標題擋住所以先隱藏，標題捲走一半後才浮現
+    function updateSunText() {
+      const hero = document.querySelector('[data-view="home"] .hero');
+      let t = 0;
+      if (document.body.dataset.tab === "home" && hero) {
+        const h = hero.offsetHeight || window.innerHeight;
+        t = Math.min(1, Math.max(0, (window.scrollY - h * 0.3) / (h * 0.3)));
+      }
+      document.documentElement.style.setProperty("--sun-text", t.toFixed(3));
+    }
+
+    // ===== C：天際線、星星、路燈、跑者 =====
+    (() => {
+      const NS = "http://www.w3.org/2000/svg";
+      const rand = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
+      const add = (parent, tag, attrs) => {
+        const el = document.createElementNS(NS, tag);
+        Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+        parent.appendChild(el);
+        return el;
+      };
+      const layer = (id, cls, base, minH, maxH, minW, maxW, windows) => {
+        const g = document.getElementById(id);
+        let x = -20;
+        while (x < 1460) {
+          const w = minW + rand() * (maxW - minW);
+          const h = minH + rand() * (maxH - minH);
+          add(g, "rect", { class: cls, x, y: base - h, width: w, height: h + 200 });
+          if (windows) {
+            for (let wy = base - h + 14; wy < base - 10; wy += 18) {
+              for (let wx = x + 8; wx < x + w - 10; wx += 14) {
+                if (rand() > 0.62) add(g, "rect", { class: "win", x: wx, y: wy, width: 5, height: 7 });
+              }
+            }
+          }
+          x += w + rand() * 8;
+        }
+      };
+      layer("far", "far", 470, 60, 220, 40, 90, false);
+      const mid = document.getElementById("mid");
+      add(mid, "rect", { class: "mid", x: 712, y: 90, width: 16, height: 400 });
+      [0, 1, 2, 3, 4, 5, 6, 7].forEach((i) => {
+        const y = 150 + i * 36;
+        add(mid, "polygon", { class: "mid", points: `${700 - i},${y + 36} ${740 + i},${y + 36} ${746 + i},${y} ${694 - i},${y}` });
+      });
+      add(mid, "rect", { class: "mid", x: 690, y: 430, width: 60, height: 80 });
+      layer("mid", "mid", 500, 40, 160, 50, 110, true);
+      layer("near", "near", 560, 20, 90, 70, 140, true);
+      const dashes = document.getElementById("dashes");
+      for (let i = 0; i < 6; i++) {
+        const t = i / 6;
+        const w = 2 + t * 8;
+        add(dashes, "rect", { class: "dash", x: 720 - w / 2, y: 480 + t * t * 120, width: w, height: 4 + t * 14 });
+      }
+      const lamps = document.getElementById("lamps");
+      [[380, 600, 1.4], [520, 520, 1], [600, 490, 0.7], [1060, 600, 1.4], [920, 520, 1], [840, 490, 0.7]].forEach(([x, y, s]) => {
+        add(lamps, "rect", { class: "lamp", x: x - 2 * s, y: y - 110 * s, width: 4 * s, height: 110 * s });
+        add(lamps, "circle", { class: "lampglow", cx: x, cy: y - 112 * s, r: 7 * s });
+      });
+      const stars = document.getElementById("stars");
+      for (let i = 0; i < 60; i++) {
+        const st = document.createElement("i");
+        st.style.left = `${rand() * 100}%`;
+        st.style.top = `${rand() * 100}%`;
+        st.style.opacity = (0.4 + rand() * 0.6).toFixed(2);
+        stars.appendChild(st);
+      }
+      const shirts = ["#e8774f", "#5aa2a0", "#4a5a8c", "#d9a441", "#c4607a", "#7c8a52"];
+      const runners = document.getElementById("runners");
+      shirts.forEach((c, i) => {
+        const div = document.createElement("div");
+        div.className = "runner";
+        div.style.setProperty("--d", i);
+        div.innerHTML = `<svg viewBox="0 0 30 60"><circle cx="15" cy="7" r="6" fill="#2a1d1d"/><rect x="7" y="14" width="16" height="20" rx="5" fill="${c}"/><rect x="4" y="16" width="4" height="14" rx="2" fill="#c98a6b" transform="rotate(${i % 2 ? 14 : -14} 6 16)"/><rect x="22" y="16" width="4" height="14" rx="2" fill="#c98a6b" transform="rotate(${i % 2 ? -14 : 14} 24 16)"/><rect x="8" y="32" width="14" height="8" rx="3" fill="#2a2a33"/><rect x="9" y="38" width="5" height="18" rx="2.5" fill="#c98a6b"/><rect x="16" y="38" width="5" height="${i % 2 ? 14 : 18}" rx="2.5" fill="#c98a6b"/></svg>`;
+        runners.appendChild(div);
+      });
+    })();
+
+    // ===== HYROX 正式賽制資料 =====
+    // 重量以 HYROX 2024/25 賽季常見公告為準，正式比賽請依官方最新規則
+    const HY_STATIONS = [
+      { no: "01", ex: "ski", name: "SkiErg 滑雪機", dist: "1000 m", rule: "雙手同時拉下把手，像越野滑雪一樣全身發力。", spec: null },
+      { no: "02", ex: "push", name: "Sled Push 推雪橇", dist: "50 m", rule: "推著雪橇前進，通常是來回推完 4 段。重量含雪橇本身。", spec: ["152 kg", "102 kg", "202 kg", "152 kg"] },
+      { no: "03", ex: "pull", name: "Sled Pull 拉雪橇", dist: "50 m", rule: "站在拉線區後方，用繩子把雪橇一把一把拉過來。", spec: ["103 kg", "78 kg", "153 kg", "103 kg"] },
+      { no: "04", ex: "jump", name: "Burpee Broad Jumps 波比跳遠", dist: "80 m", rule: "胸口貼地後起身，雙腳同時往前跳，不能踏步。", spec: null },
+      { no: "05", ex: "row", name: "Rowing 划船機", dist: "1000 m", rule: "在划船機上划滿 1000 公尺。", spec: null },
+      { no: "06", ex: "carry", name: "Farmers Carry 農夫走路", dist: "200 m", rule: "雙手各提一顆壺鈴走完全程，累了可以放下休息。", spec: ["2×24 kg", "2×16 kg", "2×32 kg", "2×24 kg"] },
+      { no: "07", ex: "lunge", name: "Sandbag Lunges 沙包弓步", dist: "100 m", rule: "沙包扛在肩上弓步前進，每一步後膝都要碰地。", spec: ["20 kg", "10 kg", "30 kg", "20 kg"] },
+      { no: "08", ex: "wall", name: "Wall Balls 牆球", dist: "100 下", rule: "深蹲到大腿低於水平，站起把球丟過目標線。", spec: ["6 kg・3 m", "4 kg・2.7 m", "9 kg・3 m", "6 kg・2.7 m"] },
+    ];
+    const LEG_COLORS = ["var(--m1)", "var(--m2)", "var(--m3)", "var(--m4)"];
+    const SPEC_HEAD = ["Open 男", "Open 女", "Pro 男", "Pro 女"];
+
+    const HY_PITS = {
+      2: `<section class="pit"><div class="hy-panel"><span class="hy-panel-tag">ROXZONE</span><h2>轉換區也在計時</h2>
+          <p class="hy-lead">每跑完 1 公里，選手都要經過 Roxzone 轉換區才能進到下一個訓練站。換站、喝水、喘口氣的時間全部算進總成績，所以高手連轉換都很快。</p>
+          <div class="hy-cards">
+            <div><b>RUN</b><strong>繞圈跑滿 1 公里</strong><p>跑道通常是繞圈設計，圈數要自己記清楚，少跑會被判罰。</p></div>
+            <div><b>ROXZONE</b><strong>進出訓練站</strong><p>跑步和訓練站之間的通道，時間照算。</p></div>
+            <div><b>STATION</b><strong>完成該站任務</strong><p>裁判確認動作和距離都達標，才能回到跑道。</p></div>
+          </div></div></section>`,
+      4: `<section class="pit"><div class="hy-panel"><span class="hy-panel-tag">DIVISIONS</span><h2>四種組別</h2>
+          <p class="hy-lead">所有組別的跑步距離和站點順序都一樣，差在重量和人數分工。</p>
+          <div class="hy-cards">
+            <div><b>OPEN</b><strong>一般組・單人</strong><p>最多人參加的組別，重量較輕，適合第一次參賽。</p></div>
+            <div><b>PRO</b><strong>菁英組・單人</strong><p>雪橇、壺鈴、沙包和牆球都更重。</p></div>
+            <div><b>DOUBLES</b><strong>雙人組</strong><p>兩人一起跑完每段 1 公里，訓練站的工作量可以自由分配。</p></div>
+            <div><b>RELAY</b><strong>四人接力組</strong><p>每人負責 2 段跑步加 2 個訓練站，就是這頁示範的方式。</p></div>
+          </div></div></section>`,
+      6: `<section class="pit"><div class="hy-panel"><span class="hy-panel-tag">TIMING & PENALTIES</span><h2>計時與判罰</h2>
+          <p class="hy-lead">成績是從起跑到最後一顆牆球命中的總時間，沒有休息暫停。</p>
+          <div class="hy-cards">
+            <div><b>NO-REP</b><strong>動作不標準要重做</strong><p>例如弓步後膝沒碰地、牆球沒過線，裁判會判該下不算。</p></div>
+            <div><b>PENALTY</b><strong>違規會加時</strong><p>少跑圈數、器材越線等情況，可能被加罰時間或取消成績。</p></div>
+            <div><b>RANKING</b><strong>依組別與年齡排名</strong><p>同組別、同年齡層一起比較，全球成績可以直接對照。</p></div>
+          </div></div></section>`,
+    };
+
+    const hyBody = document.getElementById("hy-body");
+    let hyHtml = "";
+    HY_STATIONS.forEach((s, i) => {
+      const leg = Math.floor(i / 2);
+      if (i > 0 && i % 2 === 0) hyHtml += `<div class="handoff"><span>接力組：第 ${leg + 1} 棒接手</span></div>`;
+      const spec = s.spec
+        ? `<div class="st-spec">${s.spec.map((v, j) => `<div><span>${SPEC_HEAD[j]}</span><b>${v}</b></div>`).join("")}</div>`
+        : `<div class="st-same">各組別距離相同</div>`;
+      hyHtml += `<section class="station ${i % 2 ? "right" : "left"}" data-idx="${i}" style="--shirt:${LEG_COLORS[leg]}">
+        <div class="fig-wrap" data-anchor="${i}"><div class="fig-slot" data-ex="${s.ex}"></div></div>
+        <div class="st-info">
+          <div class="st-no">${s.no}</div>
+          <div class="st-line">1 KM RUN ▸ <em>${s.dist}</em></div>
+          <div class="st-name">${s.name}</div>
+          <p class="st-desc">${s.rule}</p>
+          ${spec}
+          <span class="st-leg"><i></i>接力組第 ${leg + 1} 棒</span>
+        </div>
+      </section>`;
+      if (HY_PITS[i + 1]) hyHtml += HY_PITS[i + 1];
+    });
+    hyHtml += `<section class="finish"><div class="finish-flag" data-anchor="finish"></div><h2>FINISH</h2>
+      <div class="hy-panel" style="margin-top:20px;text-align:left"><span class="hy-panel-tag">OUR OUTPOST</span><h2>跟我們的前哨站有什麼關係？</h2>
+      <p class="hy-lead">每晚 12 點抽出的 HYROX 挑戰，題目就是從上面 8 站加跑步來的。我們把雪橇、壺鈴、沙包換成在家就能做的平替動作，讓大家先熟悉 HYROX 的動作模式。</p>
+      <button class="hy-btn" data-goto="home" data-scroll="draw">去抽今天的挑戰</button>
+      <p class="hy-fine">重量依 HYROX 2024/25 賽季常見公告整理，實際比賽請以官方最新規則為準。</p></div></section>`;
+    hyBody.innerHTML = hyHtml;
+
+    // 把小人模板塞進每個 slot
+    const tpl = document.getElementById("fig-tpl");
+    document.querySelectorAll(".fig-slot").forEach((slot) => {
+      const node = tpl.content.firstElementChild.cloneNode(true);
+      slot.dataset.ex.split(" ").forEach((ex) => node.classList.add(`ex-${ex}`));
+      ["runA", "runB"].forEach((c) => slot.classList.contains(c) && node.classList.add(c));
+      slot.replaceWith(node);
+    });
+    document.querySelectorAll(".station .fig").forEach((f, i) => (f.style.animationDelay = `${-i * 0.23}s`));
+
+    // ===== S 形賽道 =====
+    const course = document.getElementById("hy-course");
+    const roadSvg = document.getElementById("road-svg");
+    const roadPaths = roadSvg.querySelectorAll("path");
+    const donePath = roadSvg.querySelector(".road-done");
+    const chaser = document.getElementById("chaser");
+    const hudPos = document.getElementById("hud-pos");
+    const hudFlash = document.getElementById("hud-flash");
+    const hudLegs = document.querySelectorAll(".hud .legs i");
+    let samples = [];
+    let total = 0;
+    let lastDone = -1;
+
+    function buildRoad() {
+      if (!course.offsetHeight) return;
+      const cr = course.getBoundingClientRect();
+      const top = cr.top + window.scrollY;
+      const W = cr.width;
+      const pts = [];
+      const startEl = document.querySelector('[data-anchor="start"]').getBoundingClientRect();
+      pts.push([W / 2, startEl.bottom + window.scrollY - top + 10]);
+      course.querySelectorAll(".station .fig-wrap").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        pts.push([r.left + r.width / 2 - cr.left, r.bottom + window.scrollY - top - 14]);
+      });
+      const fin = document.querySelector('[data-anchor="finish"]').getBoundingClientRect();
+      pts.push([W / 2, fin.top + window.scrollY - top + fin.height / 2]);
+      let d = `M ${pts[0][0]} ${pts[0][1]}`;
+      for (let i = 1; i < pts.length; i++) {
+        const [x0, y0] = pts[i - 1];
+        const [x1, y1] = pts[i];
+        const dy = (y1 - y0) * 0.55;
+        d += ` C ${x0} ${y0 + dy}, ${x1} ${y1 - dy}, ${x1} ${y1}`;
+      }
+      roadSvg.setAttribute("viewBox", `0 0 ${W} ${course.offsetHeight}`);
+      roadPaths.forEach((p) => p.setAttribute("d", d));
+      total = donePath.getTotalLength();
+      donePath.style.strokeDasharray = `${total}`;
+      samples = [];
+      for (let l = 0; l <= total; l += 6) {
+        const pt = donePath.getPointAtLength(l);
+        samples.push([l, pt.x, pt.y]);
+      }
+      updateCourse();
+    }
+
+    function updateCourse() {
+      if (!samples.length || document.body.dataset.tab !== "hyrox") return;
+      const cr = course.getBoundingClientRect();
+      const targetY = window.innerHeight * 0.55 - cr.top;
+      let idx = samples.findIndex((s) => s[2] >= targetY);
+      if (idx === -1) idx = samples.length - 1;
+      const [len, x, y] = samples[idx];
+      const prev = samples[Math.max(0, idx - 2)];
+      chaser.style.transform = `translate(${x}px, ${y}px)`;
+      chaser.classList.toggle("flip", x < prev[1] - 0.5);
+      donePath.style.strokeDashoffset = `${total - len}`;
+
+      let current = -1;
+      course.querySelectorAll(".station").forEach((st) => {
+        const a = st.querySelector(".fig-wrap").getBoundingClientRect();
+        const done = a.bottom - cr.top - 14 <= y + 1;
+        st.classList.toggle("is-done", done);
+        if (done) current = Number(st.dataset.idx);
+      });
+      chaser.style.setProperty("--shirt", LEG_COLORS[Math.floor(Math.min(7, current + 1) / 2)]);
+      hudPos.textContent = current < 0 ? "起跑線" : current === 7 && len >= total - 8 ? "FINISH" : `第 ${HY_STATIONS[current].no} 站完成`;
+      hudLegs.forEach((el, i) => el.classList.toggle("on", current >= 0 && i <= Math.floor(current / 2)));
+      if (current > lastDone && current % 2 === 1 && current < 7) {
+        hudFlash.textContent = `交棒！第 ${Math.floor(current / 2) + 2} 棒出發`;
+        clearTimeout(updateCourse.t);
+        updateCourse.t = setTimeout(() => (hudFlash.textContent = ""), 1600);
+      }
+      lastDone = current;
+    }
+    window.addEventListener("resize", buildRoad);
+    new ResizeObserver(buildRoad).observe(course);
+
+    // ===== 分頁 =====
+    const TABS = ["home", "me", "board", "hyrox"];
+    function setTab(name, scrollTarget) {
+      if (!TABS.includes(name)) name = "home";
+      const prevTab = document.body.dataset.tab;
+      if (name === "hyrox" && prevTab !== "hyrox") showRelayLoader();
+      document.body.dataset.tab = name;
+      document.querySelectorAll(".tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+      document.querySelectorAll(".view").forEach((v) => (v.hidden = v.dataset.view !== name));
+      history.replaceState(null, "", name === "home" ? location.pathname + location.search : `#${name}`);
+      document.documentElement.style.scrollBehavior = "auto";
+      const target = scrollTarget && document.getElementById(scrollTarget);
+      document.documentElement.scrollTop = target ? target.getBoundingClientRect().top + window.scrollY - 70 : 0;
+      requestAnimationFrame(() => (document.documentElement.style.scrollBehavior = ""));
+      lastDone = -1;
+      if (name === "hyrox") buildRoad();
+      window.HY && window.HY.applyScroll();
+    }
+    document.addEventListener("click", (e) => {
+      const tab = e.target.closest(".tabs [data-tab]");
+      if (tab) return setTab(tab.dataset.tab);
+      const go = e.target.closest("[data-goto]");
+      if (go) setTab(go.dataset.goto, go.dataset.scroll);
+    });
+    document.querySelector(".tabs").addEventListener("keydown", (e) => {
+      if (!["ArrowLeft", "ArrowRight"].includes(e.key)) return;
+      const i = TABS.indexOf(document.body.dataset.tab);
+      const next = TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length];
+      setTab(next);
+      document.querySelector(`.tabs [data-tab="${next}"]`).focus();
+    });
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const initial = location.hash.slice(1);
+      if (TABS.includes(initial) && initial !== "home") setTab(initial);
+    });
+
+    // ===== 交棒載入動畫：只在切換到 HYROX 賽制時播放，點一下可跳過 =====
+    const loaderEl = document.getElementById("loader");
+    let loaderTimer = null;
+    function hideRelayLoader() {
+      clearTimeout(loaderTimer);
+      loaderEl.classList.add("is-gone");
+      buildRoad();
+    }
+    function showRelayLoader() {
+      const bar = loaderEl.querySelector(".loader-bar i");
+      bar.style.animation = "none";
+      void bar.offsetWidth; // 重新播放進度條
+      bar.style.animation = "";
+      // 瞬間蓋滿（不淡入），避免先看到底下的頁面；結束時才淡出
+      loaderEl.classList.add("is-instant");
+      loaderEl.classList.remove("is-gone");
+      void loaderEl.offsetWidth;
+      loaderEl.classList.remove("is-instant");
+      clearTimeout(loaderTimer);
+      loaderTimer = setTimeout(hideRelayLoader, 1800);
+    }
+    loaderEl.addEventListener("click", hideRelayLoader);
+    if (document.fonts) document.fonts.ready.then(buildRoad);
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="./races.js?v=20261122c"></script>
+  <script src="./live.js?v=20261122c"></script>
+</body>
+</html>
