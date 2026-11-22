@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#f6b98a" />
 <title>第七屆 HYROX 前哨打卡站</title>
-<!-- 版本：20261122e。更新 JS/CSS 後，把下面三個 ?v= 的數字一起改掉，大家的手機就會抓新檔 -->
-<meta name="hyrox-build" content="20261122e" />
+<!-- 版本：20261122f。更新 JS/CSS 後，把下面三個 ?v= 的數字一起改掉，大家的手機就會抓新檔 -->
+<meta name="hyrox-build" content="20261122f" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Oswald:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="./shared.css?v=20261122e" />
+<link rel="stylesheet" href="./shared.css?v=20261122f" />
 <style>
   /* ===== 小人骨架用的動畫變數 ===== */
   @property --y { syntax: "<length>"; inherits: true; initial-value: 0px; }
@@ -1074,16 +1074,43 @@
         const dy = (y1 - y0) * 0.55;
         d += ` C ${x0} ${y0 + dy}, ${x1} ${y1 - dy}, ${x1} ${y1}`;
       }
+      // 形狀沒變就不重畫（iPhone 滑動時網址列伸縮會一直觸發 resize）
+      const key = `${W}|${course.offsetHeight}|${d}`;
+      if (key === roadKey && samples.length) return updateCourse();
+      roadKey = key;
       roadSvg.setAttribute("viewBox", `0 0 ${W} ${course.offsetHeight}`);
       roadPaths.forEach((p) => p.setAttribute("d", d));
       total = donePath.getTotalLength();
       donePath.style.strokeDasharray = `${total}`;
-      samples = [];
-      for (let l = 0; l <= total; l += 6) {
-        const pt = donePath.getPointAtLength(l);
-        samples.push([l, pt.x, pt.y]);
+      // 直接用貝茲曲線公式取樣，不再呼叫上千次 getPointAtLength（每次都要從頭量，手機上會卡到當掉）
+      const raw = [[0, pts[0][0], pts[0][1]]];
+      let acc = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const [x0, y0] = pts[i - 1];
+        const [x1, y1] = pts[i];
+        const dy = (y1 - y0) * 0.55;
+        const c1y = y0 + dy, c2y = y1 - dy;
+        const steps = Math.max(8, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 6));
+        let px = x0, py = y0;
+        for (let k = 1; k <= steps; k++) {
+          const t = k / steps, u = 1 - t;
+          const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, e = t * t * t;
+          const x = a * x0 + b * x0 + c * x1 + e * x1;
+          const y = a * y0 + b * c1y + c * c2y + e * y1;
+          acc += Math.hypot(x - px, y - py);
+          raw.push([acc, x, y]);
+          px = x; py = y;
+        }
       }
+      const scale = acc > 0 ? total / acc : 1;
+      samples = raw.map(([l, x, y]) => [l * scale, x, y]);
       updateCourse();
+    }
+    let roadKey = "";
+    let roadTimer = null;
+    function scheduleRoad() {
+      clearTimeout(roadTimer);
+      roadTimer = setTimeout(buildRoad, 150);
     }
 
     function updateCourse() {
@@ -1115,9 +1142,9 @@
       }
       lastDone = current;
     }
-    window.addEventListener("resize", buildRoad);
+    window.addEventListener("resize", scheduleRoad);
     if ("ResizeObserver" in window && course) {
-      new ResizeObserver(buildRoad).observe(course);
+      new ResizeObserver(scheduleRoad).observe(course);
     }
 
     // ===== 分頁 =====
@@ -1217,7 +1244,7 @@
     if (document.fonts) document.fonts.ready.then(buildRoad);
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="./races.js?v=20261122e"></script>
-  <script src="./live.js?v=20261122e"></script>
+  <script src="./races.js?v=20261122f"></script>
+  <script src="./live.js?v=20261122f"></script>
 </body>
 </html>
